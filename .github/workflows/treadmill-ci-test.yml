@@ -40,7 +40,7 @@ jobs:
 
       # This workflow tests the tock-hardware-ci scripts itself, so take the
       # current GITHUB_SHA:
-      tock-hardware-ci-ref: ${{ vars.GITHUB_SHA }}
+      tock-hardware-ci-ref: ${{ env.GITHUB_SHA }}
 
       # Use the latest upstream Tock kernel / userspace components:
       tock-kernel-ref: 'master'
