@@ -29,5 +29,21 @@ jobs:
   treadmill-ci:
     uses: ./.github/workflows/treadmill-ci.yml
     with:
-      repository: 'tock/tock-hardware-ci'
+      # Only run on a specific repository, as others will not have the right
+      # environments set up and secrets configured. Forks may want to change
+      # this parameter.
+      repository-filter: 'tock/tock-hardware-ci'
+
+      # Provide access to the required Treadmill secrets by running in the
+      # appropriate environment (depending on the on: triggers above)
+      job-environment: ${{ github.event_name == 'pull_request' && 'treadmill-ci' || 'treadmill-ci-merged' }}
+
+      # This workflow tests the tock-hardware-ci scripts itself, so take the
+      # current GITHUB_SHA:
+      tock-hardware-ci-ref: ${{ vars.GITHUB_SHA }}
+
+      # Use the latest upstream Tock kernel / userspace components:
+      tock-kernel-ref: 'master'
+      libtock-c-ref: 'master'
+      
     secrets: inherit
