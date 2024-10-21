@@ -24,9 +24,6 @@ env:
 on:
   workflow_call:
     inputs:
-      environment:
-        required: true
-        type: string
       repository:
         required: true
         type: string
