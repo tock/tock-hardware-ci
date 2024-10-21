@@ -30,4 +30,4 @@ jobs:
     uses: ./.github/workflows/treadmill-ci.yml
     with:
       repository: 'tock/tock-hardware-ci'
-      environment: ${{ github.event_name == 'pull_request' && 'treadmill-ci' || 'treadmill-ci-merged' }}
+    secrets: inherit
