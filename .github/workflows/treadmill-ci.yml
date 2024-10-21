@@ -29,6 +29,7 @@ on:
   push:
     branches:
       - master
+      - dev/tock-hardware-ci
   # Pull requests from forks will not have access to the required GitHub API
   # secrets below, even if they are using an appropriate deployment environment
   # and the workflow runs have been approved according to this environment's
@@ -47,8 +48,8 @@ jobs:
   test-prepare:
     runs-on: ubuntu-latest
 
-    # Do not run job on forks
-    if: github.repository == 'tock/tock'
+    # Do not run job on forks, as they will not have the correct environment set up
+    if: github.repository == 'tock/tock-hardware-ci'
 
     # This provides access to the secrets required below:
     # - for `treadmill-ci`: after approval by certain persons or GH teams
