@@ -37,7 +37,7 @@ jobs:
 
     # Do not run job on forks, as they will not have the correct environment set up
     if: github.repository == inputs.repository
-    environment: ${{ inputs.environment }}
+    environment: 'treadmill-ci-merged' # ${{ inputs.environment }}
 
     outputs:
       tml-job-ids: ${{ steps.treadmill-job-launch.outputs.tml-job-ids }}
