@@ -24,7 +24,16 @@ env:
 on:
   workflow_call:
     inputs:
-      repository:
+      repository-filter:
+        required: true
+        type: string
+      tock-hardware-ci-ref:
+        required: true
+        type: string
+      tock-kernel-ref:
+        required: true
+        type: string
+      libtock-c-ref:
         required: true
         type: string
 
@@ -33,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # Do not run job on forks, as they will not have the correct environment set up
-    if: github.repository == inputs.repository
+    if: github.repository == inputs.repository-filter
     environment: 'treadmill-ci-merged' # ${{ inputs.environment }}
 
     outputs:
@@ -194,6 +203,9 @@ jobs:
           echo "verbose = off" >> $HOME/.wgetrc
 
       - uses: actions/checkout@v4
+        with:
+          repository: tock/tock-hardware-ci
+          ref: ${{ inputs.tock-hardware-ci-ref }}
 
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
