@@ -246,12 +246,12 @@ jobs:
         run: |
           python3 -m venv ./hwcienv
           source ./hwcienv/bin/activate
-          pip install -r tools/hwci/requirements.txt -c tools/hwci/requirements-frozen.txt
+          pip install -r hwci/requirements.txt -c hwci/requirements-frozen.txt
 
       - name: Run tests
         run: |
           source ./hwcienv/bin/activate
-          cd ./tools/hwci
+          cd ./hwci
           export PYTHONPATH="$PWD:$PYTHONPATH"
           python3 core/main.py --board boards/nrf52dk.py --test tests/c_hello.py
 
