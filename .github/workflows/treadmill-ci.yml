@@ -27,6 +27,9 @@ on:
       repository-filter:
         required: true
         type: string
+      job-environment:
+        required: true
+        type: string
       tock-hardware-ci-ref:
         required: true
         type: string
@@ -43,7 +46,7 @@ jobs:
 
     # Do not run job on forks, as they will not have the correct environment set up
     if: github.repository == inputs.repository-filter
-    environment: 'treadmill-ci-merged' # ${{ inputs.environment }}
+    environment: ${{ inputs.job-environment }}
 
     outputs:
       tml-job-ids: ${{ steps.treadmill-job-launch.outputs.tml-job-ids }}
