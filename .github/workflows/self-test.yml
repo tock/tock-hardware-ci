@@ -4,31 +4,26 @@ on:
   push:
     branches:
       - master
-      - dev/tock-hardware-ci
   pull_request:
   merge_group:
 permissions:
   contents: read
+  id-token: write # Required for requesting GitHub App tokens
 jobs:
   notify-hardware-ci:
     runs-on: ubuntu-latest
     # Only run on the main tock-hardware-ci repository, not on forks
     if: github.repository == 'tock/tock-hardware-ci'
     steps:
-      - id: generate-token
-        name: Generate token for workflow dispatch
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ vars.TREADMILL_GH_APP_CLIENT_ID }}
-          private-key: ${{ secrets.TREADMILL_GH_APP_PRIVATE_KEY }}
       - name: Trigger hardware CI test workflow
         uses: actions/github-script@v7
         with:
-          github-token: ${{ steps.generate-token.outputs.token }}
+          # Use the default GITHUB_TOKEN since we're triggering a workflow in the same repo
+          github-token: ${{ github.token }}
           script: |
             await github.rest.actions.createWorkflowDispatch({
-              owner: 'tock',
-              repo: 'tock-hardware-ci',
+              owner: context.repo.owner,
+              repo: context.repo.repo,
               workflow_id: 'treadmill-ci-test.yml',
               ref: '${{ github.sha }}',
               inputs: {
@@ -56,3 +51,30 @@ jobs:
           cd hwci
           export PYTHONPATH="$PWD:$PYTHONPATH"
           python3 core/main.py --board boards/mock_board.py --test tests/c_hello.py
+
+# For reference, here's how you would set up cross-repo workflow dispatch if needed:
+#
+# notify-external-ci:
+#   runs-on: ubuntu-latest
+#   # Only run this job if GitHub App credentials are configured
+#   if: vars.TREADMILL_GH_APP_CLIENT_ID != ''
+#
+#   steps:
+#     - id: generate-token
+#       name: Generate token for cross-repo access
+#       uses: actions/create-github-app-token@v1
+#       with:
+#         app-id: ${{ vars.TREADMILL_GH_APP_CLIENT_ID }}
+#         private-key: ${{ secrets.TREADMILL_GH_APP_PRIVATE_KEY }}
+#
+#     - name: Trigger external workflow
+#       uses: actions/github-script@v7
+#       with:
+#         github-token: ${{ steps.generate-token.outputs.token }}
+#         script: |
+#           await github.rest.actions.createWorkflowDispatch({
+#             owner: 'external-org',
+#             repo: 'external-repo',
+#             workflow_id: 'workflow.yml',
+#             ref: 'master'
+#           });``
