@@ -1,6 +1,8 @@
 name: treadmill-ci-test
+
 env:
   TERM: xterm # Makes tput work in actions output
+
 # Controls when the action will run. Triggers the workflow on pull request and
 # merge group checks:
 #
@@ -20,8 +22,10 @@ on:
   # allows this workflow to run without access to repository secrets.
   #pull_request:
   merge_group: # Run CI for the GitHub merge queue
+
 permissions:
   contents: read
+
 jobs:
   treadmill-ci:
     uses: tock/tock-hardware-ci/.github/workflows/treadmill-ci.yml@dev/tock-hardware-ci
@@ -30,13 +34,17 @@ jobs:
       # environments set up and secrets configured. Forks may want to change
       # this parameter.
       repository-filter: 'tock/tock-hardware-ci'
+
       # Provide access to the required Treadmill secrets by running in the
       # appropriate environment (depending on the on: triggers above)
       job-environment: ${{ github.event_name == 'pull_request' && 'treadmill-ci' || 'treadmill-ci-merged' }}
+
       # This workflow tests the tock-hardware-ci scripts itself, so take the
       # current GITHUB_SHA:
       tock-hardware-ci-ref: ${{ github.sha }}
+
       # Use the latest upstream Tock kernel / userspace components:
       tock-kernel-ref: 'master'
       libtock-c-ref: 'master'
+
     secrets: inherit
