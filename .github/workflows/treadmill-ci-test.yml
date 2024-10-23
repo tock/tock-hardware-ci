@@ -24,7 +24,7 @@ permissions:
   contents: read
 jobs:
   treadmill-ci:
-    uses: tock/tock-hardware-ci/.github/workflows/treadmill-ci.yml@main
+    uses: ./.github/workflows/treadmill-ci.yml
     with:
       # Only run on a specific repository, as others will not have the right
       # environments set up and secrets configured. Forks may want to change
