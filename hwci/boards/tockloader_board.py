@@ -15,37 +15,43 @@ class TockloaderBoard(BoardHarness):
         super().__init__()
         self.board = None  # Should be set in subclass
         self.arch = None  # Should be set in subclass
+        self.base_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
 
     def flash_app(self, app):
         logging.info(f"Flashing app: {app}")
-        if not os.path.exists("libtock-c"):
-            logging.info("Cloning libtock-c repository")
-            subprocess.run(
-                ["git", "clone", "https://github.com/tock/libtock-c"], check=True
-            )
-        app_dir = os.path.join("libtock-c", "examples", app)
+        libtock_c_dir = os.path.join(self.base_dir, "libtock-c")
+        if not os.path.exists(libtock_c_dir):
+            logging.error(f"libtock-c directory {libtock_c_dir} not found")
+            raise FileNotFoundError(f"libtock-c directory {libtock_c_dir} not found")
+
+        app_dir = os.path.join(libtock_c_dir, "examples", app)
         if not os.path.exists(app_dir):
             logging.error(f"App directory {app_dir} not found")
             raise FileNotFoundError(f"App directory {app_dir} not found")
-        with self.change_directory(app_dir):
-            logging.info(f"Building app: {app}")
-            subprocess.run(["make", f"TOCK_TARGETS={self.arch}"], check=True)
-            tab_file = f"build/{app}.tab"
-            if not os.path.exists(tab_file):
-                logging.error(f"Tab file {tab_file} not found")
-                raise FileNotFoundError(f"Tab file {tab_file} not found")
-            logging.info(f"Installing app: {app}")
-            subprocess.run(
-                [
-                    "tockloader",
-                    "install",
-                    "--board",
-                    self.board,
-                    "--openocd",
-                    tab_file,
-                ],
-                check=True,
-            )
+
+        # Build the app using absolute paths
+        logging.info(f"Building app: {app}")
+        subprocess.run(["make", f"TOCK_TARGETS={self.arch}"], cwd=app_dir, check=True)
+
+        tab_file = os.path.join(app_dir, "build", f"{app}.tab")
+        if not os.path.exists(tab_file):
+            logging.error(f"Tab file {tab_file} not found")
+            raise FileNotFoundError(f"Tab file {tab_file} not found")
+
+        logging.info(f"Installing app: {app}")
+        subprocess.run(
+            [
+                "tockloader",
+                "install",
+                "--board",
+                self.board,
+                "--openocd",
+                tab_file,
+            ],
+            check=True,
+        )
 
     def get_uart_port(self):
         pass

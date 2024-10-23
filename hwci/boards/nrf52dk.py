@@ -15,12 +15,14 @@ class Nrf52dk(TockloaderBoard):
     def __init__(self):
         super().__init__()
         self.arch = "cortex-m4"
-        self.kernel_board_path = "tock/boards/nordic/nrf52840dk"
+        self.kernel_board_path = os.path.join(
+            self.base_dir, "tock/boards/nordic/nrf52840dk"
+        )
         self.uart_port = self.get_uart_port()
         self.uart_baudrate = self.get_uart_baudrate()
         self.openocd_board = "nrf52dk"
         self.board = "nrf52dk"
-        self.serial = self.get_serial_port()  # Set serial attribute
+        self.serial = self.get_serial_port()
 
     def get_uart_port(self):
         logging.info("Getting list of serial ports")
@@ -45,6 +47,18 @@ class Nrf52dk(TockloaderBoard):
         )
         return SerialPort(self.uart_port, self.uart_baudrate)
 
+    def flash_kernel(self):
+        logging.info("Flashing the Tock OS kernel")
+        tock_dir = os.path.join(self.base_dir, "tock")
+        if not os.path.exists(tock_dir):
+            logging.error(f"Tock directory {tock_dir} not found")
+            raise FileNotFoundError(f"Tock directory {tock_dir} not found")
+
+        # Run make flash-openocd from the board directory
+        subprocess.run(
+            ["make", "flash-openocd"], cwd=self.kernel_board_path, check=True
+        )
+
     def erase_board(self):
         logging.info("Erasing the board")
         command = [
@@ -53,14 +67,6 @@ class Nrf52dk(TockloaderBoard):
             "adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; init; nrf52_recover; exit",
         ]
         subprocess.run(command, check=True)
-
-    def flash_kernel(self):
-        logging.info("Flashing the Tock OS kernel")
-        if not os.path.exists("tock"):
-            logging.info("Cloning Tock repository")
-            subprocess.run(["git", "clone", "https://github.com/tock/tock"], check=True)
-        with self.change_directory(self.kernel_board_path):
-            subprocess.run(["make", "flash-openocd"], check=True)
 
     # The flash_app method is inherited from TockloaderBoard
 
