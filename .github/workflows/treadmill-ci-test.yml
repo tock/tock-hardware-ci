@@ -11,7 +11,6 @@ on:
   push:
     branches:
       - master
-      - dev/tock-hardware-ci
   # Pull requests from forks will not have access to the required GitHub API
   # secrets below, even if they are using an appropriate deployment environment
   # and the workflow runs have been approved according to this environment's
@@ -28,7 +27,7 @@ permissions:
 
 jobs:
   treadmill-ci:
-    uses: tock/tock-hardware-ci/.github/workflows/treadmill-ci.yml@dev/tock-hardware-ci
+    uses: ./.github/workflows/treadmill-ci.yml
     with:
       # Only run on a specific repository, as others will not have the right
       # environments set up and secrets configured. Forks may want to change
