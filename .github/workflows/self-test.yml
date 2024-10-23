@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - dev/tock-hardware-ci
   pull_request:
   merge_group:
 permissions:
@@ -52,7 +53,7 @@ jobs:
           export PYTHONPATH="$PWD:$PYTHONPATH"
           python3 core/main.py --board boards/mock_board.py --test tests/c_hello.py
 
-# For reference, here's how you would set up cross-repo workflow dispatch if needed:
+# For reference, here's how one would set up cross-repo workflow dispatch if needed:
 #
 # notify-external-ci:
 #   runs-on: ubuntu-latest
