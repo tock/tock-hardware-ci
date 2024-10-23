@@ -1,0 +1,58 @@
+# tock-hardware-ci/.github/workflows/self-test.yml
+name: Hardware CI Self-Test
+on:
+  push:
+    branches:
+      - master
+      - dev/tock-hardware-ci
+  pull_request:
+  merge_group:
+permissions:
+  contents: read
+jobs:
+  notify-hardware-ci:
+    runs-on: ubuntu-latest
+    # Only run on the main tock-hardware-ci repository, not on forks
+    if: github.repository == 'tock/tock-hardware-ci'
+    steps:
+      - id: generate-token
+        name: Generate token for workflow dispatch
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.TREADMILL_GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.TREADMILL_GH_APP_PRIVATE_KEY }}
+      - name: Trigger hardware CI test workflow
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'tock',
+              repo: 'tock-hardware-ci',
+              workflow_id: 'treadmill-ci-test.yml',
+              ref: '${{ github.sha }}',
+              inputs: {
+                'tock-hardware-ci-ref': '${{ github.sha }}',
+                'tock-kernel-ref': 'master',
+                'libtock-c-ref': 'master'
+              }
+            });
+  # Run local tests that don't require hardware
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r hwci/requirements.txt -c hwci/requirements-frozen.txt
+      - name: Run tests with mock board
+        run: |
+          cd hwci
+          export PYTHONPATH="$PWD:$PYTHONPATH"
+          python3 core/main.py --board boards/mock_board.py --test tests/c_hello.py
