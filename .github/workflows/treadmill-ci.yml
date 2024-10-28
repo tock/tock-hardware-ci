@@ -39,6 +39,10 @@ on:
       libtock-c-ref:
         required: true
         type: string
+      tests:
+        required: false
+        type: string
+        default: "tests/c_hello.py" # Default to single test for backward compatibility
 
 jobs:
   test-prepare:
@@ -116,7 +120,11 @@ jobs:
           # identically:
           HOST_TYPE: nbd-netboot
           HOST_ARCH: arm64
+          TESTS: ${{ inputs.tests }}
         run: |
+          # Read the list of tests and convert to JSON array
+          TEST_LIST=$(echo "$TESTS" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+
           # When we eventually launch tests on multiple hardware platforms in
           # parallel, we need to supply different SUB_TEST_IDs here:
           SUB_TEST_ID="0"
@@ -125,6 +133,7 @@ jobs:
           # registering and allows us to launch test-execute jobs on this exact
           # runner (connected to the exact board we want to run tests on).
           RUNNER_ID="tml-gh-actions-runner-${GITHUB_REPOSITORY_ID}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${SUB_TEST_ID}"
+
 
           # Obtain a new just-in-time runner registration token:
           RUNNER_CONFIG_JSON="$(gh api \
@@ -162,18 +171,13 @@ jobs:
           TML_JOB_ID="$(echo "$TML_JOB_ID_JSON" | jq -r .job_id)"
           echo "Enqueued Treadmill job with ID $TML_JOB_ID"
 
+
           # Pass the job IDs and other configuration data into the outputs of
           # this step, such that we can run test-execute job instances for each
           # Treadmill job we've started:
-          echo "tml-job-ids=[ \
-            \"$TML_JOB_ID\" \
-          ]" >> "$GITHUB_OUTPUT"
+          echo "tml-job-ids=[ \"$TML_JOB_ID\" ]" >> "$GITHUB_OUTPUT"
+          echo "tml-jobs={ \"$TML_JOB_ID\": { \"runner-id\": \"$RUNNER_ID\", \"tests\": $TEST_LIST } }" >> "$GITHUB_OUTPUT"
 
-          echo "tml-jobs={ \
-            \"$TML_JOB_ID\": { \
-              \"runner-id\": \"$RUNNER_ID\", \
-            } \
-          }" >> "$GITHUB_OUTPUT"
 
   test-execute:
     needs: test-prepare
@@ -258,11 +262,17 @@ jobs:
           pip install -r hwci/requirements.txt -c hwci/requirements-frozen.txt
 
       - name: Run tests
+        env:
+          JSON_TEST_ARRAY: ${{ toJSON(fromJSON(needs.test-prepare.outputs.tml-jobs)[matrix.tml-job-id].tests) }}
         run: |
           source ./hwcienv/bin/activate
-          cd ./hwci
+          cd ./tools/hwci
           export PYTHONPATH="$PWD:$PYTHONPATH"
-          python3 core/main.py --board boards/nrf52dk.py --test tests/c_hello.py
+
+          echo "$JSON_TEST_ARRAY" | jq -r -c '.[]' | while read TEST; do
+            echo "===== RUNNING TEST $TEST ====="
+            python3 core/main.py --board boards/nrf52dk.py --test "$TEST" || echo "===== Test failed! ====="
+          done
 
       - name: Request shutdown after successful job completion
         run: |
