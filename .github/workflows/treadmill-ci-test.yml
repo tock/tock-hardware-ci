@@ -37,7 +37,7 @@ jobs:
 
       # Provide access to the required Treadmill secrets by running in the
       # appropriate environment (depending on the on: triggers above)
-      job-environment: ${{ github.event_name == 'push' || github.event_name == 'merge_group' && 'treadmill-ci-merged' || 'treadmill-ci' }}
+      job-environment: ${{ github.event_name == 'pull_request' && 'treadmill-ci' || 'treadmill-ci-merged' }}
 
 
       # This workflow tests the tock-hardware-ci scripts itself, so take the
