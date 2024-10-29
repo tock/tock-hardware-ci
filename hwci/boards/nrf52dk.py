@@ -9,6 +9,9 @@ from contextlib import contextmanager
 import serial.tools.list_ports
 from boards.tockloader_board import TockloaderBoard
 from utils.serial_port import SerialPort
+from gpio.gpio import GPIO
+import yaml
+import os
 
 
 class Nrf52dk(TockloaderBoard):
@@ -23,6 +26,7 @@ class Nrf52dk(TockloaderBoard):
         self.openocd_board = "nrf52dk"
         self.board = "nrf52dk"
         self.serial = self.get_serial_port()
+        self.gpio = self.get_gpio_interface()
 
     def get_uart_port(self):
         logging.info("Getting list of serial ports")
@@ -46,6 +50,20 @@ class Nrf52dk(TockloaderBoard):
             f"Using serial port: {self.uart_port} at baudrate {self.uart_baudrate}"
         )
         return SerialPort(self.uart_port, self.uart_baudrate)
+
+    def get_gpio_interface(self):
+        # Load the target spec from a YAML file
+        target_spec = load_target_spec()
+        # Initialize GPIO with the target spec
+        gpio = GPIO(target_spec)
+        return gpio
+
+    def cleanup(self):
+        if self.gpio:
+            for interface in self.gpio.gpio_interfaces.values():
+                interface.cleanup()
+        if self.serial:
+            self.serial.close()
 
     def flash_kernel(self):
         logging.info("Flashing the Tock OS kernel")
@@ -80,6 +98,14 @@ class Nrf52dk(TockloaderBoard):
         finally:
             os.chdir(previous_dir)
             logging.info(f"Reverted to directory: {os.getcwd()}")
+
+
+def load_target_spec():
+    # Assume the target spec file is in a fixed location
+    target_spec_path = os.path.join(os.getcwd(), "target_spec.yaml")
+    with open(target_spec_path, "r") as f:
+        target_spec = yaml.safe_load(f)
+    return target_spec
 
 
 board = Nrf52dk()

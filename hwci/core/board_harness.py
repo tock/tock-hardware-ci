@@ -23,6 +23,9 @@ class BoardHarness:
     def get_gpio_interface(self):
         pass
 
+    def cleanup(self):
+        pass
+
     def erase_board(self):
         pass
 

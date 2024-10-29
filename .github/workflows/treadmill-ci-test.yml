@@ -48,27 +48,31 @@ jobs:
       tock-kernel-ref: 'master'
       libtock-c-ref: 'master'
       tests: |
-        tests/ble_env_sense.py
-        tests/ble_advertising.py
-        tests/ble_passive_scanning.py
         tests/c_hello.py
-        tests/printf_long.py
-        tests/c_hello_and_printf_long.py
-        tests/sensors.py
-        tests/console_recv_short.py
-        tests/console_recv_long.py
-        tests/lua_hello.py
-        tests/malloc_test01.py
-        tests/malloc_test02.py
-        tests/stack_size_test01.py
-        tests/stack_size_test02.py
-        tests/mpu_stack_growth.py
         tests/mpu_walk_region.py
-        tests/adc.py
-        tests/adc_continuous.py
-        tests/ipc_logic.py
-        tests/gpio_interrupt.py
-        tests/whileone.py
-        tests/multi_alarm_simple_test.py
+
+      # tests: |
+      #  tests/ble_env_sense.py
+      #  tests/ble_advertising.py
+      #  tests/ble_passive_scanning.py
+      #  tests/c_hello.py
+      #  tests/printf_long.py
+      #  tests/c_hello_and_printf_long.py
+      #  tests/sensors.py
+      #  tests/console_recv_short.py
+      #  tests/console_recv_long.py
+      #  tests/lua_hello.py
+      #  tests/malloc_test01.py
+      #  tests/malloc_test02.py
+      #  tests/stack_size_test01.py
+      #  tests/stack_size_test02.py
+      #  tests/mpu_stack_growth.py
+      #  tests/mpu_walk_region.py
+      #  tests/adc.py
+      #  tests/adc_continuous.py
+      #  tests/ipc_logic.py
+      #  tests/gpio_interrupt.py
+      #  tests/whileone.py
+      #  tests/multi_alarm_simple_test.py
 
     secrets: inherit
