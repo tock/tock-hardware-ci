@@ -72,16 +72,16 @@ jobs:
           cargo build --package tml-cli
           popd
           echo "$PWD/treadmill/target/debug" >> "$GITHUB_PATH"
-      # - uses: actions/checkout@v4
-      #   with:
-      #     repository: tock/tock
-      #     ref: ${{ inputs.tock-kernel-ref }}
-      #     path: tock
-
       # - name: Analyze changes and determine types of tests to run
       #   run: |
       #     echo "TODO: implement this!"
       - name: Generate a token to register new just-in-time runners
+        # - uses: actions/checkout@v4
+        #   with:
+        #     repository: tock/tock
+        #     ref: ${{ inputs.tock-kernel-ref }}
+        #     path: tock
+
         id: generate-token
         uses: actions/create-github-app-token@v1
         with:
@@ -190,6 +190,9 @@ jobs:
       - name: Disable wget progress output
         run: |
           echo "verbose = off" >> $HOME/.wgetrc
+      - name: enable gpio permissions
+        run: |
+          sudo adduser $(whoami) gpio
       - name: Checkout the Tock Hardware CI scripts
         uses: actions/checkout@v4
         with:
