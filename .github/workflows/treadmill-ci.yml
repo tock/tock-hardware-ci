@@ -222,7 +222,7 @@ jobs:
           # part out.
           sudo DEBIAN_FRONTEND=noninteractive apt update || true
           sudo DEBIAN_FRONTEND=noninteractive apt install -y \
-            git cargo openocd python3 python3-pip python3-serial  \
+            git cargo openocd python3 python3-pip python3-serial \
             python3-pexpect gcc-arm-none-eabi libnewlib-arm-none-eabi \
             pkg-config libudev-dev cmake libusb-1.0-0-dev udev make \
             gdb-multiarch gcc-arm-none-eabi build-essential jq || true
