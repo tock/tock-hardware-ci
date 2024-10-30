@@ -5,5 +5,4 @@
 pexpect
 pyserial
 tockloader
-gpiozero
 pyyaml

@@ -1,8 +1,6 @@
 argcomplete==3.5.1
 colorama==0.4.6
-colorzero==2.0
 crcmod==1.7
-gpiozero==2.0.1
 pexpect==4.9.0
 prompt-toolkit==3.0.36
 ptyprocess==0.7.0
