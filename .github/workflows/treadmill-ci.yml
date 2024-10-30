@@ -190,9 +190,6 @@ jobs:
       - name: Disable wget progress output
         run: |
           echo "verbose = off" >> $HOME/.wgetrc
-      - name: enable gpio permissions
-        run: |
-          sudo adduser $(whoami) gpio
       - name: Checkout the Tock Hardware CI scripts
         uses: actions/checkout@v4
         with:
@@ -223,7 +220,7 @@ jobs:
           # part out.
           sudo DEBIAN_FRONTEND=noninteractive apt update || true
           sudo DEBIAN_FRONTEND=noninteractive apt install -y \
-            git cargo openocd python3 python3-pip python3-serial \
+            git cargo openocd python3 python3-pip python3-serial python3-gpiozero \
             python3-pexpect gcc-arm-none-eabi libnewlib-arm-none-eabi \
             pkg-config libudev-dev cmake libusb-1.0-0-dev udev make \
             gdb-multiarch gcc-arm-none-eabi build-essential jq || true
@@ -247,7 +244,7 @@ jobs:
 
           echo "$JSON_TEST_ARRAY" | jq -r -c '.[]' | while read TEST; do
             echo "===== RUNNING TEST $TEST ====="
-            python3 core/main.py --board boards/nrf52dk.py --test "$TEST" || echo "===== Test failed! ====="
+            sudo python3 core/main.py --board boards/nrf52dk.py --test "$TEST" || echo "===== Test failed! ====="
           done
       - name: Request shutdown after successful job completion
         run: |
