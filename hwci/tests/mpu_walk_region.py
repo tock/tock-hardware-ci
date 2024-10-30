@@ -69,4 +69,4 @@ class MpuWalkRegionTest(OneshotTest):
         logging.info("MPU Walk Region Test completed successfully")
 
 
-test = MpuWalkRegionTest(["tests/mpu/mpu_walk_region"])
+test = MpuWalkRegionTest(["mpu_walk_region"])

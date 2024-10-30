@@ -48,7 +48,7 @@ def main():
         logging.exception("An error occurred during test execution")
         sys.exit(1)
     finally:
-        board.cleaup()
+        board.cleanup()
 
 
 if __name__ == "__main__":
