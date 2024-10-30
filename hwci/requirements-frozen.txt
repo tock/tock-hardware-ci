@@ -10,7 +10,6 @@ pycryptodome==3.21.0
 pyserial==3.5
 PyYAML==6.0.2
 questionary==2.0.1
-RPi.GPIO==0.7.1
 siphash==0.0.1
 tockloader==1.13.0
 toml==0.10.2

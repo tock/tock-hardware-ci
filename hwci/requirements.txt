@@ -6,5 +6,4 @@ pexpect
 pyserial
 tockloader
 gpiozero
-RPi.GPIO
 pyyaml
