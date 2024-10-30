@@ -7,6 +7,9 @@ import time
 
 
 class MpuWalkRegionTest(OneshotTest):
+    def __init__(self):
+        super().__init__(apps=["tests/mpu/mpu_walk_region"])
+
     def oneshot_test(self, board):
         gpio = board.gpio
         serial = board.serial
@@ -69,4 +72,4 @@ class MpuWalkRegionTest(OneshotTest):
         logging.info("MPU Walk Region Test completed successfully")
 
 
-test = MpuWalkRegionTest(["mpu_walk_region"])
+test = MpuWalkRegionTest()

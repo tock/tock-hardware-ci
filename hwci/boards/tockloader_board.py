@@ -19,28 +19,28 @@ class TockloaderBoard(BoardHarness):
             os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         )
 
-    def flash_app(self, app):
-        logging.info(f"Flashing app: {app}")
+    def flash_app(self, app_path):
+        app_name = os.path.basename(app_path)
+        logging.info(f"Flashing app: {app_name}")
         libtock_c_dir = os.path.join(self.base_dir, "libtock-c")
         if not os.path.exists(libtock_c_dir):
             logging.error(f"libtock-c directory {libtock_c_dir} not found")
             raise FileNotFoundError(f"libtock-c directory {libtock_c_dir} not found")
 
-        app_dir = os.path.join(libtock_c_dir, "examples", app)
+        app_dir = os.path.join(libtock_c_dir, "examples", app_path)
         if not os.path.exists(app_dir):
             logging.error(f"App directory {app_dir} not found")
             raise FileNotFoundError(f"App directory {app_dir} not found")
 
         # Build the app using absolute paths
-        logging.info(f"Building app: {app}")
+        logging.info(f"Building app: {app_name}")
         subprocess.run(["make", f"TOCK_TARGETS={self.arch}"], cwd=app_dir, check=True)
 
-        tab_file = os.path.join(app_dir, "build", f"{app}.tab")
+        tab_file = os.path.join(app_dir, "build", f"{app_name}.tab")
         if not os.path.exists(tab_file):
             logging.error(f"Tab file {tab_file} not found")
             raise FileNotFoundError(f"Tab file {tab_file} not found")
-
-        logging.info(f"Installing app: {app}")
+        logging.info(f"Installing app: {app_name}")
         subprocess.run(
             [
                 "tockloader",
