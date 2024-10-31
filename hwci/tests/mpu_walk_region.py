@@ -14,8 +14,7 @@ class MpuWalkRegionTest(OneshotTest):
         gpio = board.gpio
         serial = board.serial
 
-        # Map 'BTN0' to the appropriate pin label in your target spec
-        # Assuming 'BTN0' is 'P0.11' as per your target_spec.yaml
+        # Assuming 'BTN0' is 'P0.11' as per target_spec.yaml
         btn0 = gpio.pin("P0.11")
 
         # Configure the pin as output to simulate button press (active low)
@@ -24,6 +23,7 @@ class MpuWalkRegionTest(OneshotTest):
 
         # Start the test
         logging.info("Starting MPU Walk Region Test")
+
         # Wait for "[TEST] MPU Walk Regions"
         output = serial.expect(r"\[TEST\] MPU Walk Regions", timeout=10)
         if not output:
@@ -32,41 +32,84 @@ class MpuWalkRegionTest(OneshotTest):
         # First test: overrun flash region
         logging.info("First overrun test: Overrun flash region")
         # Wait for "Walking flash"
-        serial.expect("Walking flash", timeout=5)
+        output = serial.expect("Walking flash", timeout=5)
+        if not output:
+            raise Exception("Did not receive 'Walking flash' message")
         # Wait for "Walking memory"
-        serial.expect("Walking memory", timeout=5)
+        output = serial.expect("Walking memory", timeout=5)
+        if not output:
+            raise Exception("Did not receive 'Walking memory' message")
         # Wait for " incr "
-        serial.expect(" incr ", timeout=5)
+        output = serial.expect(" incr ", timeout=5)
+        if not output:
+            raise Exception("Did not receive 'incr' message")
         # Simulate button press (active low)
         btn0.write(0)
         logging.info("Button pressed (simulated)")
         # Wait for "Walking flash...Will overrun"
-        serial.expect(r"Walking flash.*Will overrun", timeout=10)
+        output = serial.expect(r"Walking flash.*Will overrun", timeout=10)
+        if not output:
+            raise Exception("Did not receive 'Walking flash...Will overrun' message")
         # Wait for "mpu_walk_region had a fault"
-        serial.expect("mpu_walk_region had a fault", timeout=10)
-        # Wait for "mcause: 0x00000005 (Load access fault)"
-        serial.expect("mcause: 0x00000005 \(Load access fault\)", timeout=5)
+        output = serial.expect("mpu_walk_region had a fault", timeout=10)
+        if not output:
+            raise Exception("Did not receive 'mpu_walk_region had a fault' message")
+        # Wait for Cortex-M fault status message
+        output = serial.expect(r"---\| Cortex-M Fault Status \|---", timeout=10)
+        if not output:
+            raise Exception("Did not receive Cortex-M fault status message")
         logging.info("First overrun test passed")
 
         # Release the button
         btn0.write(1)
         logging.info("Button released (simulated)")
 
+        # Reset the board and re-flash the app for the second test
+        logging.info("Resetting the board for the second test")
+        board.erase_board()
+        board.flash_kernel()
+        board.flash_app("tests/mpu/mpu_walk_region")
+        serial.flush_buffer()
+        btn0.write(1)  # Ensure button is not pressed initially (inactive state)
+
+        # Start the test again
+        output = serial.expect(r"\[TEST\] MPU Walk Regions", timeout=10)
+        if not output:
+            raise Exception(
+                "Did not receive expected test start message for second test"
+            )
+
         # Second test: overrun RAM region
         logging.info("Second overrun test: Overrun RAM region")
         # Wait for "Walking flash"
-        serial.expect("Walking flash", timeout=10)
+        output = serial.expect("Walking flash", timeout=10)
+        if not output:
+            raise Exception("Did not receive 'Walking flash' message in second test")
+        # Wait for "Walking memory"
+        output = serial.expect("Walking memory", timeout=5)
+        if not output:
+            raise Exception("Did not receive 'Walking memory' message in second test")
         # Wait for " incr "
-        serial.expect(" incr ", timeout=5)
+        output = serial.expect(" incr ", timeout=5)
+        if not output:
+            raise Exception("Did not receive 'incr' message in second test")
         # Simulate button press (active low)
         btn0.write(0)
         logging.info("Button pressed (simulated)")
         # Wait for "Walking memory...Will overrun"
-        serial.expect(r"Walking memory.*Will overrun", timeout=10)
+        output = serial.expect(r"Walking memory.*Will overrun", timeout=10)
+        if not output:
+            raise Exception("Did not receive 'Walking memory...Will overrun' message")
         # Wait for "mpu_walk_region had a fault"
-        serial.expect("mpu_walk_region had a fault", timeout=10)
-        # Wait for "mcause: 0x00000005 (Load access fault)"
-        serial.expect("mcause: 0x00000005 \(Load access fault\)", timeout=5)
+        output = serial.expect("mpu_walk_region had a fault", timeout=10)
+        if not output:
+            raise Exception("Did not receive 'mpu_walk_region had a fault' message")
+        # Wait for Cortex-M fault status message
+        output = serial.expect(r"---\| Cortex-M Fault Status \|---", timeout=10)
+        if not output:
+            raise Exception(
+                "Did not receive Cortex-M fault status message in second test"
+            )
         logging.info("Second overrun test passed")
 
         logging.info("MPU Walk Region Test completed successfully")
