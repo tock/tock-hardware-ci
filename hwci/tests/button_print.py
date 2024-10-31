@@ -7,9 +7,10 @@
 import logging
 from utils.test_helpers import OneshotTest
 
+
 class ButtonPressTest(OneshotTest):
     def __init__(self):
-        super().__init__(apps=["examples/tests/button_print"])  
+        super().__init__(apps=["tests/button_print"])
 
     def oneshot_test(self, board):
         gpio = board.gpio
@@ -44,5 +45,6 @@ class ButtonPressTest(OneshotTest):
         logging.info("Button released (simulated)")
 
         logging.info("Button Press Test completed successfully")
+
 
 test = ButtonPressTest()
