@@ -34,10 +34,14 @@ class SerialPort:
             logging.debug(f"Matched pattern '{pattern}'")
             return self.child.after
         except fdpexpect.TIMEOUT:
+            received_data = self.child.before.decode("utf-8", errors="replace")
             logging.error(f"Timeout waiting for pattern '{pattern}'")
+            logging.error(f"Received so far:\n{received_data}")
             return None
         except fdpexpect.EOF:
+            received_data = self.child.before.decode("utf-8", errors="replace")
             logging.error("EOF reached while waiting for pattern")
+            logging.error(f"Received so far:\n{received_data}")
             return None
 
     def close(self):
