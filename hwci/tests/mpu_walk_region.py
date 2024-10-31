@@ -46,10 +46,16 @@ class MpuWalkRegionTest(OneshotTest):
         # Simulate button press (active low)
         btn0.write(0)
         logging.info("Button pressed (simulated)")
-        # Wait for "Walking flash...Will overrun"
-        output = serial.expect(r"Walking flash.*Will overrun", timeout=10)
+        # Wait for "Walking flash"
+        output = serial.expect("Walking flash", timeout=10)
         if not output:
-            raise Exception("Did not receive 'Walking flash...Will overrun' message")
+            raise Exception(
+                "Did not receive 'Walking flash' message after button press"
+            )
+        # Wait for "  ! Will overrun"
+        output = serial.expect(r"  ! Will overrun", timeout=5)
+        if not output:
+            raise Exception("Did not receive '  ! Will overrun' message")
         # Wait for "mpu_walk_region had a fault"
         output = serial.expect("mpu_walk_region had a fault", timeout=10)
         if not output:
@@ -96,10 +102,10 @@ class MpuWalkRegionTest(OneshotTest):
         output = serial.expect("Walking memory", timeout=5)
         if not output:
             raise Exception("Did not receive 'Walking memory' message in second test")
-        # Wait for "Walking memory...Will overrun"
-        output = serial.expect(r"Walking memory.*Will overrun", timeout=10)
+        # Wait for "  ! Will overrun"
+        output = serial.expect(r"  ! Will overrun", timeout=5)
         if not output:
-            raise Exception("Did not receive 'Walking memory...Will overrun' message")
+            raise Exception("Did not receive '  ! Will overrun' message in second test")
         # Wait for "mpu_walk_region had a fault"
         output = serial.expect("mpu_walk_region had a fault", timeout=10)
         if not output:
