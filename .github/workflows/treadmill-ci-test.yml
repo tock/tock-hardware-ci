@@ -48,8 +48,9 @@ jobs:
       tock-kernel-ref: 'master'
       libtock-c-ref: 'master'
       tests: |
-        tests/c_hello.py
+        tests/c_hello.
         tests/mpu_walk_region.py
+        tests/button_print.py
 
       # tests: |
       #  tests/ble_env_sense.py
