@@ -1,4 +1,4 @@
-# hwci/tests/button_print.py
+# hwci/tests/button_print_should_fail.py
 
 # Licensed under the Apache License, Version 2.0 or the MIT License.
 # SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -34,7 +34,7 @@ class ButtonPressTest(OneshotTest):
         logging.info("Button pressed (simulated)")
 
         # Wait for the expected output
-        output = serial.expect(r"Button Press! Button: 0 Status: 0", timeout=5)
+        output = serial.expect(r"Button Press! Button: 1 Status: 1", timeout=5)
         if not output:
             raise Exception("Did not receive expected button press message")
 

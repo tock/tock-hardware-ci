@@ -51,6 +51,7 @@ jobs:
         tests/c_hello.
         tests/mpu_walk_region.py
         tests/button_print.py
+        tests/button_print_should_fail.py
 
       # tests: |
       #  tests/ble_env_sense.py
