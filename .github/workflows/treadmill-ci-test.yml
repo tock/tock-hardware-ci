@@ -48,9 +48,12 @@ jobs:
       tock-kernel-ref: 'master'
       libtock-c-ref: 'master'
       tests: |
-        tests/c_hello.
-        tests/mpu_walk_region.py
+        tests/blink.py
         tests/button_print.py
+        tests/buttons.py
+        tests/c_hello.py
+        tests/gpio_original.py
+        tests/mpu_walk_region.py
 
       # tests: |
       #  tests/ble_env_sense.py
