@@ -46,7 +46,7 @@ jobs:
           pushd hwci/
           HWCI_TESTS_JSON="$(jq -c -n '$ARGS.positional' --args tests/*.py)"
           echo "Selected HWCI tests: $(echo "${HWCI_TESTS_JSON}" | jq .)"
-          echo "hwci-tests=${HWCI_TESTS_JSON}" >> "$GITHUB_OUTPUT"
+          echo "hwci-tests-json=${HWCI_TESTS_JSON}" >> "$GITHUB_OUTPUT"
           popd
 
   run-treadmill-ci:
