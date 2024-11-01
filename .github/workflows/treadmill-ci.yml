@@ -40,10 +40,10 @@ on:
       libtock-c-ref:
         required: true
         type: string
-      tests:
+      tests-json:
         required: false
         type: string
-        default: 'tests/c_hello.py' # Default to single test for backward compatibility
+        default: '["tests/c_hello.py"]' # Default to single test for backward compatibility
 jobs:
   test-prepare:
     runs-on: ubuntu-latest
@@ -108,11 +108,8 @@ jobs:
           # identically:
           HOST_TYPE: nbd-netboot
           HOST_ARCH: arm64
-          TESTS: ${{ inputs.tests }}
+          TESTS_JSON: ${{ inputs.tests-json }}
         run: |
-          # Read the list of tests and convert to JSON array
-          TEST_LIST=$(echo "$TESTS" | jq -R -s -c 'split("\n") | map(select(length > 0))')
-
           # When we eventually launch tests on multiple hardware platforms in
           # parallel, we need to supply different SUB_TEST_IDs here:
           SUB_TEST_ID="0"
@@ -164,7 +161,7 @@ jobs:
           # this step, such that we can run test-execute job instances for each
           # Treadmill job we've started:
           echo "tml-job-ids=[ \"$TML_JOB_ID\" ]" >> "$GITHUB_OUTPUT"
-          echo "tml-jobs={ \"$TML_JOB_ID\": { \"runner-id\": \"$RUNNER_ID\", \"tests\": $TEST_LIST } }" >> "$GITHUB_OUTPUT"
+          echo "tml-jobs={ \"$TML_JOB_ID\": { \"runner-id\": \"$RUNNER_ID\", \"tests\": $TESTS_JSON } }" >> "$GITHUB_OUTPUT"
   test-execute:
     needs: test-prepare
     strategy:
