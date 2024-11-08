@@ -52,7 +52,7 @@ class SensorsTest(OneshotTest):
                 sensors_found = False
 
                 while time.time() < reading_timeout:
-                    output = serial.expect(r".*\r\n", timeout=2)
+                    output = serial.expect(r".*\n", timeout=2)
                     if output:
                         line = output.decode("utf-8", errors="replace").strip()
                         if not line:  # Skip empty lines
