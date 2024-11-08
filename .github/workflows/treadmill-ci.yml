@@ -276,21 +276,24 @@ jobs:
           <details>
           <summary>Test \`$TEST\`</summary>
           ##### <a id="#test-$SANITIZED_TEST_NAME"></a> Test \`$TEST\`
+
           \`\`\`
           STEP_SUMMARY_DETAILS
 
           # Run the test script, saving its output:
           echo "===== RUNNING TEST $TEST ====="
           FAIL=0
-          (python3 core/main.py --board boards/nrf52dk.py --test "$TEST" 2>&1 | tee ./job-output.txt) || FAIL=1
+          set -o pipefail
+          python3 core/main.py --board boards/nrf52dk.py --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+          set +o pipefail
 
           # Insert the result into the markdown table:
           if [ "$FAIL" == "0" ]; then
             echo "| ✅ | \`$TEST\` ([Output](#test-$SANITIZED_TEST_NAME)) |" >>"$GITHUB_STEP_SUMMARY"
-            STEP_FAIL=1
           else
             echo "===== Test $TEST failed! ====="
             echo "| ❌ | \`$TEST\` ([Output](#test-$SANITIZED_TEST_NAME)) |" >>"$GITHUB_STEP_SUMMARY"
+            STEP_FAIL=1
           fi
 
           # Sanitize the output (remove triple backslashes) and copy it into the step summary details:
@@ -299,7 +302,9 @@ jobs:
           # Finalize this section of the test output summary:
           cat <<STEP_SUMMARY_DETAILS >>"./step-summary-details.txt"
           \`\`\`
+
           </details>
+
           STEP_SUMMARY_DETAILS
 
           # -----------> DONE
