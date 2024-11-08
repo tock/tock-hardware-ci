@@ -166,6 +166,17 @@ jobs:
           TML_JOBS_OUTPUT="{ \"$TML_JOB_ID\": { \"runner-id\": \"$RUNNER_ID\", \"tests\": $TESTS_JSON } }"
           echo "Setting tml-jobs output to ${TML_JOBS_OUTPUT}"
           echo "tml-jobs=${TML_JOBS_OUTPUT}" >> "$GITHUB_OUTPUT"
+
+          # Generate an overview over the scheduled jobs and their respective tests:
+          cat <<GITHUB_STEP_SUMMARY >>"$GITHUB_STEP_SUMMARY"
+          ## Test Overview
+          | Test | Board | Job |
+          |------|-------|-----|
+          GITHUB_STEP_SUMMARY
+          echo "$TESTS_JSON" | jq -r -c '.[]' | while read TEST; do
+            echo "| \`$TEST\` | \`$DUT_BOARD\` | [\`$TML_JOB_ID\`](#tml-job-summary-$TML_JOB_ID) |" >>"$GITHUB_STEP_SUMMARY"
+          done
+
   test-execute:
     needs: test-prepare
     strategy:
@@ -244,10 +255,11 @@ jobs:
           source ./hwcienv/bin/activate
           cd ./hwci
           export PYTHONPATH="$PWD:$PYTHONPATH"
+          STEP_FAIL=0
 
           # Generate a summary of all the tests executed:
           cat <<GITHUB_STEP_SUMMARY >>"$GITHUB_STEP_SUMMARY"
-          ### Tests executed on board \`nrf52840dk\`, job ID ${{ matrix.tml-job-id }}
+          ### <a id="tml-job-summary-${{ matrix.tml-job-id }}"></a>Tests executed on board \`nrf52840dk\`, job ID ${{ matrix.tml-job-id }}
 
           | Result | Test |
           |--------|------|
@@ -263,7 +275,7 @@ jobs:
           cat <<STEP_SUMMARY_DETAILS >>"./step-summary-details.txt"
           <details>
           <summary>Test \`$TEST\`</summary>
-          ##### Test \`$TEST\`
+          ##### <a id="#test-$SANITIZED_TEST_NAME"></a> Test \`$TEST\`
           \`\`\`
           STEP_SUMMARY_DETAILS
 
@@ -274,10 +286,11 @@ jobs:
 
           # Insert the result into the markdown table:
           if [ "$FAIL" == "0" ]; then
-            echo "| ✅ | \`$TEST\` ([Output](#test-|" >>"$GITHUB_STEP_SUMMARY"
+            echo "| ✅ | \`$TEST\` ([Output](#test-$SANITIZED_TEST_NAME)) |" >>"$GITHUB_STEP_SUMMARY"
+            STEP_FAIL=1
           else
             echo "===== Test $TEST failed! ====="
-            echo "| ❌ | \`$TEST\` |" >>"$GITHUB_STEP_SUMMARY"
+            echo "| ❌ | \`$TEST\` ([Output](#test-$SANITIZED_TEST_NAME)) |" >>"$GITHUB_STEP_SUMMARY"
           fi
 
           # Sanitize the output (remove triple backslashes) and copy it into the step summary details:
@@ -295,6 +308,12 @@ jobs:
           # Finally, add all test output sections to the overall step summary:
           echo "" >>"$GITHUB_STEP_SUMMARY"
           cat "./step-summary-details.txt" >>"$GITHUB_STEP_SUMMARY"
+
+          # Exit with an error if at least one test failed:
+          if [ "$STEP_FAIL" != "0" ]; then
+            echo "At least one test failed, exiting with error."
+            exit 1
+          fi
       - name: Request shutdown after successful job completion
         run: |
           sudo touch /run/github-actions-shutdown
