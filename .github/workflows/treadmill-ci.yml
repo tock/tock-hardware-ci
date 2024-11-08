@@ -245,9 +245,24 @@ jobs:
           cd ./hwci
           export PYTHONPATH="$PWD:$PYTHONPATH"
 
+          # Generate a summary of all the tests executed:
+          cat <<EOF >>"$GITHUB_STEP_SUMMARY"
+          ### Tests executed on board \`nrf52840dk\`, job ID ${{ matrix.tml-job-id }}
+
+          | Result | Test |
+          |--------|------|
+          EOF
+
           echo "$JSON_TEST_ARRAY" | jq -r -c '.[]' | while read TEST; do
             echo "===== RUNNING TEST $TEST ====="
-            python3 core/main.py --board boards/nrf52dk.py --test "$TEST" || echo "===== Test failed! ====="
+            FAIL=0
+            python3 core/main.py --board boards/nrf52dk.py --test "$TEST" || FAIL=1
+            if [ "$FAIL" == "0" ]; then
+              echo "| ✅ | \`$TEST\` |" >>"$GITHUB_STEP_SUMMARY"
+            else
+              echo "===== Test $TEST failed! ====="
+              echo "| ❌ | \`$TEST\` |" >>"$GITHUB_STEP_SUMMARY"
+            fi
           done
       - name: Request shutdown after successful job completion
         run: |
