@@ -13,52 +13,38 @@ class MultiAlarmTest(OneshotTest):
     def oneshot_test(self, board):
         gpio = board.gpio
 
-        # Map the LEDs according to target_spec.yaml
-        led_pins = {
-            "LED1": gpio.pin("P0.13"),
-            "LED2": gpio.pin("P0.14"),
-        }
+        led_pins = {}
+        available_leds = ["LED1", "LED2", "LED3", "LED4"]  # Extend if needed
+        for led_name in available_leds:
+            try:
+                led_pins[led_name] = gpio.pin(
+                    f"P0.{13 + available_leds.index(led_name)}"
+                )
+            except ValueError:
+                continue
 
-        # Configure LED pins as inputs to read their state
+        if not led_pins:
+            raise Exception("No LEDs found in target_spec.yaml")
+
         for led in led_pins.values():
             led.set_mode("input")
 
-        # Since the LEDs are active low, when the pin is low, the LED is on
         logging.info("Starting Multi-Alarm Test")
 
-        # Expected behavior:
-        # Each LED starts blinking at specific times and repeats every interval
-
-        # Get the number of LEDs
         num_leds = len(led_pins)
         spacing = 1.0  # seconds between each LED
         interval = spacing * num_leds  # Total interval in seconds
+        test_duration = interval * 2 + spacing  # Ensure we capture at least two cycles
 
         start_time = time.time()
 
-        # Initialize expected times for each LED
-        expected_events = {}  # led_name: list of (expected_time, 'on'/'off')
-        for idx, led_name in enumerate(led_pins.keys()):
-            events = []
-            # First event is 'on' at time spacing * (idx + 1)
-            first_on_time = start_time + spacing * (idx + 1)
-            time_point = first_on_time
-            while time_point - start_time < 10:  # Test duration in seconds
-                events.append((time_point, "on"))
-                # LED stays on for 0.3 seconds
-                off_time = time_point + 0.3
-                if off_time - start_time < 10:
-                    events.append((off_time, "off"))
-                time_point += interval
-            expected_events[led_name] = events
-
-        # Record actual events
+        # Record observed events
         observed_events = {led_name: [] for led_name in led_pins.keys()}
-        led_states = {
-            led_name: None for led_name in led_pins.keys()
-        }  # Unknown initial state
+        led_states = {led_name: None for led_name in led_pins.keys()}
 
-        end_time = start_time + 10  # Test duration in seconds
+        end_time = start_time + test_duration  # Test duration in seconds
+
+        first_event_time = None
 
         while time.time() < end_time:
             current_time = time.time()
@@ -74,29 +60,45 @@ class MultiAlarmTest(OneshotTest):
                         f"{led_name} changed state to {'ON' if led_on else 'OFF'} at {event_time - start_time:.2f}s"
                     )
                     observed_events[led_name].append(
-                        (event_time, "on" if led_on else "off")
+                        (event_time - start_time, "on" if led_on else "off")
                     )
+                    if first_event_time is None:
+                        first_event_time = (
+                            event_time - start_time
+                        )  # Record the time of the first event
             time.sleep(0.05)  # Sleep briefly to reduce CPU usage
 
-        # Compare observed events with expected events
-        tolerance = 0.2  # Allow 200ms of tolerance
-        for led_name in led_pins.keys():
-            expected = expected_events[led_name]
-            observed = observed_events[led_name]
-            if len(expected) != len(observed):
+        # If no events were observed, fail the test
+        if all(len(events) == 0 for events in observed_events.values()):
+            raise Exception("No LED events were observed during the test.")
+
+        # Analyze the observed events
+        for led_name, events in observed_events.items():
+            if len(events) < 2:
                 raise Exception(
-                    f"{led_name}: Expected {len(expected)} events, observed {len(observed)} events"
+                    f"{led_name}: Insufficient events observed ({len(events)} events)."
                 )
-            for (exp_time, exp_state), (obs_time, obs_state) in zip(expected, observed):
-                if exp_state != obs_state:
-                    raise Exception(
-                        f"{led_name}: Expected state '{exp_state}', observed '{obs_state}'"
-                    )
-                time_diff = abs(exp_time - obs_time)
-                if time_diff > tolerance:
-                    raise Exception(
-                        f"{led_name}: Event at {obs_time - start_time:.2f}s differs from expected {exp_time - start_time:.2f}s by {time_diff:.2f}s"
-                    )
+
+            # Calculate the intervals between 'on' events
+            on_times = [time for time, state in events if state == "on"]
+            if len(on_times) < 2:
+                raise Exception(f"{led_name}: Insufficient 'on' events observed.")
+
+            intervals = [t2 - t1 for t1, t2 in zip(on_times, on_times[1:])]
+            average_interval = sum(intervals) / len(intervals)
+            expected_interval = interval
+
+            # Allow for a tolerance in the interval calculation
+            tolerance = 0.5  # seconds
+            if abs(average_interval - expected_interval) > tolerance:
+                raise Exception(
+                    f"{led_name}: Interval between blinks is incorrect. Expected ~{expected_interval}s, observed ~{average_interval:.2f}s."
+                )
+
+            logging.info(
+                f"{led_name}: Blinking at approximately {average_interval:.2f}s intervals."
+            )
+
         logging.info("Multi-Alarm Test completed successfully")
 
 

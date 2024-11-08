@@ -15,11 +15,9 @@ class GpioTest(OneshotTest):
     def oneshot_test(self, board):
         gpio = board.gpio
 
-        # Configure the correct GPIO pin based on the board mapping
-        gpio_pin = gpio.pin("P1.11")
+        gpio_pin = gpio.pin("P0.11")
         gpio_pin.set_mode("output")
 
-        # Since the app toggles GPIO 0, we'll read its value
         logging.info("Starting GPIO test")
         time.sleep(1)  # Allow app to start
 

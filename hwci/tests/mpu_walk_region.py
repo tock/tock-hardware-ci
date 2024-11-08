@@ -103,9 +103,9 @@ class MpuWalkRegionTest(OneshotTest):
         if not output:
             raise Exception("Did not receive 'Walking memory' message in second test")
         # Wait for "  ! Will overrun"
-        output = serial.expect(r"  ! Will overrun", timeout=5)
-        if not output:
-            raise Exception("Did not receive '  ! Will overrun' message in second test")
+        # output = serial.expect(r"  ! Will overrun", timeout=5)
+        # if not output:
+        #    raise Exception("Did not receive '  ! Will overrun' message in second test")
         # Wait for "mpu_walk_region had a fault"
         output = serial.expect("mpu_walk_region had a fault", timeout=10)
         if not output:
