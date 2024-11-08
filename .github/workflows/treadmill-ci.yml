@@ -254,16 +254,44 @@ jobs:
           EOF
 
           echo "$JSON_TEST_ARRAY" | jq -r -c '.[]' | while read TEST; do
+            # For markdown links, we want a sanitized test name without special characters
+            SANITIZED_TEST_NAME="${TEST//[^[:alnum:]]/_}"
+
+            # Prepare a collapsible section in the test output:
+            cat <<EOF >>"./step-summary-details.txt"
+            <details>
+            <summary>Test \`$TEST\`</summary>
+            ##### Test \`$TEST\`
+            \`\`\`
+            EOF
+
+            # Run the test script, saving its output:
             echo "===== RUNNING TEST $TEST ====="
             FAIL=0
-            python3 core/main.py --board boards/nrf52dk.py --test "$TEST" || FAIL=1
+            (python3 core/main.py --board boards/nrf52dk.py --test "$TEST" 2>&1 | tee ./job-output.txt) || FAIL=1
+
+            # Insert the result into the markdown table:
             if [ "$FAIL" == "0" ]; then
-              echo "| ✅ | \`$TEST\` |" >>"$GITHUB_STEP_SUMMARY"
+              echo "| ✅ | \`$TEST\` ([Output](#test-|" >>"$GITHUB_STEP_SUMMARY"
             else
               echo "===== Test $TEST failed! ====="
               echo "| ❌ | \`$TEST\` |" >>"$GITHUB_STEP_SUMMARY"
             fi
+
+            # Sanitize the output (remove triple backslashes) and copy it into the step summary details:
+            cat ./job-output.txt | sed 's/```//g' >>"./step-summary-details.txt"
+
+            # Finalize this section of the test output summary:
+            cat <<EOF >>"./step-summary-details.txt"
+            \`\`\`
+            </details>
+
+            EOF
           done
+
+          # Finally, add all test output sections to the overall step summary:
+          echo "" >>"$GITHUB_STEP_SUMMARY"
+          cat "./step-summary-details.txt" >>"$GITHUB_STEP_SUMMARY"
       - name: Request shutdown after successful job completion
         run: |
           sudo touch /run/github-actions-shutdown
