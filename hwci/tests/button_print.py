@@ -5,8 +5,8 @@
 # Copyright Tock Contributors 2024.
 
 import logging
-from utils.test_helpers import OneshotTest
 import time
+from utils.test_helpers import OneshotTest
 
 
 class ButtonPressTest(OneshotTest):
@@ -30,17 +30,22 @@ class ButtonPressTest(OneshotTest):
         if not output:
             raise Exception("Did not receive expected test start message")
 
-        time.sleep(0.5)
+        # Longer delay before button press to ensure board is ready
+        time.sleep(2.0)
+
         # Simulate button press
         button_pin.write(0)  # Active low, so writing 0 simulates press
         logging.info("Button pressed (simulated)")
 
-        # Wait for the expected output
-        output = serial.expect(r"Button Press! Button: 0 Status: 0", timeout=5)
+        # Wait longer for the expected output
+        output = serial.expect(r"Button Press! Button: 0 Status: 0", timeout=10)
         if not output:
             raise Exception("Did not receive expected button press message")
 
         logging.info("Button press message received")
+
+        # Hold button press longer before release
+        time.sleep(1.0)
 
         # Release button
         button_pin.write(1)
