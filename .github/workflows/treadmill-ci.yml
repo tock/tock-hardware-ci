@@ -265,7 +265,7 @@ jobs:
           |--------|------|
           GITHUB_STEP_SUMMARY
 
-          echo "$JSON_TEST_ARRAY" | jq -r -c '.[]' | while read TEST; do
+          while read TEST; do
           # WHILE ---------->
 
           # For markdown links, we want a sanitized test name without special characters
@@ -308,7 +308,7 @@ jobs:
           STEP_SUMMARY_DETAILS
 
           # -----------> DONE
-          done
+          done < <(echo "$JSON_TEST_ARRAY" | jq -r -c '.[]')
 
           # Finally, add all test output sections to the overall step summary:
           echo "" >>"$GITHUB_STEP_SUMMARY"
