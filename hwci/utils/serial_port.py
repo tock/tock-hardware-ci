@@ -44,6 +44,10 @@ class SerialPort:
             logging.error(f"Received so far:\n{received_data}")
             return None
 
+    def write(self, data):
+        logging.debug(f"Writing data: {data}")
+        self.ser.write(data)
+
     def close(self):
         self.ser.close()
         logging.info(f"Closed serial port {self.port}")

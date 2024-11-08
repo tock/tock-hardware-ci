@@ -6,6 +6,7 @@
 
 import logging
 from utils.test_helpers import OneshotTest
+import time
 
 
 class ButtonPressTest(OneshotTest):
@@ -29,6 +30,7 @@ class ButtonPressTest(OneshotTest):
         if not output:
             raise Exception("Did not receive expected test start message")
 
+        time.sleep(0.5)
         # Simulate button press
         button_pin.write(0)  # Active low, so writing 0 simulates press
         logging.info("Button pressed (simulated)")

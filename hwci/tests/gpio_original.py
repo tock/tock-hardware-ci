@@ -16,7 +16,7 @@ class GpioTest(OneshotTest):
         gpio = board.gpio
 
         # Configure the correct GPIO pin based on the board mapping
-        gpio_pin = gpio.pin("P1.01")  # Arduino D0
+        gpio_pin = gpio.pin("P1.11")
         gpio_pin.set_mode("output")
 
         # Since the app toggles GPIO 0, we'll read its value
