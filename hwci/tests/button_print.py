@@ -20,7 +20,7 @@ class ButtonPressTest(OneshotTest):
         button_pin = gpio.pin("P0.11")
         # Set the pin as output to simulate button press (active low)
         button_pin.set_mode("output")
-        button_pin.write(1)  # Ensure button is not pressed initially
+        # button_pin.write(1)
 
         # Start the test
         logging.info("Starting Button Press Test")
@@ -37,19 +37,19 @@ class ButtonPressTest(OneshotTest):
         button_pin.write(0)  # Active low, so writing 0 simulates press
         logging.info("Button pressed (simulated)")
 
-        # Wait longer for the expected output
-        output = serial.expect(r"Button Press! Button: 0 Status: 0", timeout=10)
-        if not output:
-            raise Exception("Did not receive expected button press message")
-
-        logging.info("Button press message received")
-
         # Hold button press longer before release
         time.sleep(1.0)
 
         # Release button
         button_pin.write(1)
         logging.info("Button released (simulated)")
+
+        # Wait longer for the expected output
+        output = serial.expect(r"Button Press! Button: 0 Status: 0", timeout=10)
+        if not output:
+            raise Exception("Did not receive expected button press message")
+
+        logging.info("Button press message received")
 
         logging.info("Button Press Test completed successfully")
 
