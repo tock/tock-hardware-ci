@@ -25,15 +25,13 @@ class ConsoleTimeoutTest(OneshotTest):
 
         # Wait for the expected output from the application
         logging.info("Waiting for the application to output the result...")
-        output = serial.expect(
-            r"Userspace call to read console returned: (.*)", timeout=10
-        )
+        pattern = r"Userspace call to read console returned: (.*)"
+        output = serial.expect(pattern, timeout=10)
+
         if output:
             received_line = serial.child.after.decode("utf-8", errors="replace").strip()
             logging.info(f"Received output: {received_line}")
-            match = re.search(
-                r"Userspace call to read console returned: (.*)", received_line
-            )
+            match = re.search(pattern, received_line)
             if match:
                 received_text = match.group(1)
                 # Check if received text starts with the first word of our input
