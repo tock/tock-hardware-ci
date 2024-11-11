@@ -19,6 +19,8 @@ class MpuWalkRegionTest(OneshotTest):
         btn0.write(1)  # Ensure button is not pressed initially
 
         logging.info("Starting MPU Walk Region Test")
+        serial.flush_buffer()
+        board.reset()
 
         # Wait for test start
         output = serial.expect(r"\[TEST\] MPU Walk Regions", timeout=10)
@@ -44,11 +46,13 @@ class MpuWalkRegionTest(OneshotTest):
         logging.info("Button pressed (simulated)")
 
         # Wait for next walking flash message
-        output = serial.expect("Walking flash", timeout=10)
+        output = serial.expect("Walking flash(.*)! Will overrun", timeout=5)
         if not output:
-            raise Exception(
-                "Did not receive 'Walking flash' message after button press"
-            )
+            raise Exception("Did not receive 'Walking flash' message in first test")
+
+        # Ensure that we're overrunning memory, so no other "Walking" message is in the output:
+        if output.count(b"Walking") != 1:
+            raise Exception(f"Button press raced with \"Walking\" message: {output}")
 
         # Wait for fault
         output = serial.expect("mpu_walk_region had a fault", timeout=10)
@@ -66,11 +70,9 @@ class MpuWalkRegionTest(OneshotTest):
         logging.info("Button released (simulated)")
 
         logging.info("Resetting the board for the second test")
-        board.erase_board()
-        board.flash_kernel()
-        board.flash_app("tests/mpu/mpu_walk_region")
-        serial.flush_buffer()
         btn0.write(1)
+        board.reset()
+        serial.flush_buffer()
 
         # Start second test
         output = serial.expect(r"\[TEST\] MPU Walk Regions", timeout=10)
@@ -91,9 +93,13 @@ class MpuWalkRegionTest(OneshotTest):
         btn0.write(0)
         logging.info("Button pressed (simulated)")
 
-        output = serial.expect("Walking memory", timeout=5)
+        output = serial.expect("Walking memory(.*)! Will overrun", timeout=5)
         if not output:
             raise Exception("Did not receive 'Walking memory' message in second test")
+
+        # Ensure that we're overrunning memory, so no other "Walking" message is in the output:
+        if output.count(b"Walking") != 1:
+            raise Exception(f"Button press raced with \"Walking\" message: {output}")
 
         # Wait for fault without requiring "Will overrun" message
         output = serial.expect("mpu_walk_region had a fault", timeout=10)

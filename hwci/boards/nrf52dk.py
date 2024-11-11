@@ -86,6 +86,15 @@ class Nrf52dk(TockloaderBoard):
         ]
         subprocess.run(command, check=True)
 
+    def reset(self):
+        logging.info("Performing a target reset via JTAG")
+        command = [
+            "openocd",
+            "-c",
+            "adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; init; reset; exit",
+        ]
+        subprocess.run(command, check=True)
+
     # The flash_app method is inherited from TockloaderBoard
 
     @contextmanager

@@ -29,6 +29,9 @@ class BoardHarness:
     def erase_board(self):
         pass
 
+    def reset(self):
+        raise NotImplementedError
+
     def flash_kernel(self):
         pass
 
