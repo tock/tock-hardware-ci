@@ -12,28 +12,28 @@ class BoardHarness:
         self.gpio = None
 
     def get_uart_port(self):
-        pass
+        raise NotImplementedError
 
     def get_uart_baudrate(self):
-        pass
+        raise NotImplementedError
 
     def get_serial_port(self):
-        pass
+        raise NotImplementedError
 
     def get_gpio_interface(self):
-        pass
+        raise NotImplementedError
 
     def cleanup(self):
-        pass
+        raise NotImplementedError
 
     def erase_board(self):
-        pass
+        raise NotImplementedError
 
     def reset(self):
         raise NotImplementedError
 
     def flash_kernel(self):
-        pass
+        raise NotImplementedError
 
     def flash_app(self, app):
-        pass
+        raise NotImplementedError

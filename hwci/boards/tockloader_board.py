@@ -54,16 +54,19 @@ class TockloaderBoard(BoardHarness):
         )
 
     def get_uart_port(self):
-        pass
+        raise NotImplementedError
 
     def get_uart_baudrate(self):
-        pass
+        raise NotImplementedError
 
     def erase_board(self):
-        pass
+        raise NotImplementedError
+
+    def reset(self):
+        raise NotImplementedError
 
     def flash_kernel(self):
-        pass
+        raise NotImplementedError
 
     @contextmanager
     def change_directory(self, new_dir):
