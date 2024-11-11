@@ -18,9 +18,7 @@ class Nrf52dk(TockloaderBoard):
     def __init__(self):
         super().__init__()
         self.arch = "cortex-m4"
-        self.kernel_board_path = os.path.join(
-            self.base_dir, "tock/boards/nordic/nrf52840dk"
-        )
+        self.kernel_board_path = "tock/boards/nordic/nrf52840dk"
         self.uart_port = self.get_uart_port()
         self.uart_baudrate = self.get_uart_baudrate()
         self.openocd_board = "nrf52dk"
@@ -67,7 +65,7 @@ class Nrf52dk(TockloaderBoard):
 
     def flash_kernel(self):
         logging.info("Flashing the Tock OS kernel")
-        tock_dir = os.path.join(self.base_dir, "tock")
+        tock_dir = "tock"
         if not os.path.exists(tock_dir):
             logging.error(f"Tock directory {tock_dir} not found")
             raise FileNotFoundError(f"Tock directory {tock_dir} not found")

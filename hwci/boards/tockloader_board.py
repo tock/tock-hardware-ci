@@ -15,14 +15,15 @@ class TockloaderBoard(BoardHarness):
         super().__init__()
         self.board = None  # Should be set in subclass
         self.arch = None  # Should be set in subclass
-        self.base_dir = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
+        #self.base_dir = os.path.dirname(
+        #    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        #)
 
     def flash_app(self, app_path):
         app_name = os.path.basename(app_path)
         logging.info(f"Flashing app: {app_name}")
-        libtock_c_dir = os.path.join(self.base_dir, "libtock-c")
+        #libtock_c_dir = os.path.join(self.base_dir, "libtock-c")
+        libtock_c_dir = "libtock-c"
         if not os.path.exists(libtock_c_dir):
             logging.error(f"libtock-c directory {libtock_c_dir} not found")
             raise FileNotFoundError(f"libtock-c directory {libtock_c_dir} not found")

@@ -20,7 +20,8 @@ class ButtonPressTest(OneshotTest):
         button_pin = gpio.pin("P0.11")
         # Set the pin as output to simulate button press (active low)
         button_pin.set_mode("output")
-        # button_pin.write(1)
+        button_pin.write(1)
+        time.sleep(1.0)
 
         # Start the test
         logging.info("Starting Button Press Test")
