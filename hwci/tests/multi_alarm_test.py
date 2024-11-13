@@ -14,7 +14,8 @@ class MultiAlarmTest(OneshotTest):
         gpio = board.gpio
 
         led_pins = {}
-        available_leds = ["LED1", "LED2", "LED3", "LED4"]  # Extend if needed
+        available_leds = ["LED1", "LED2"]  # Extend if needed "LED3", "LED4" etc...
+
         for led_name in available_leds:
             try:
                 led_pins[led_name] = gpio.pin(
@@ -30,11 +31,15 @@ class MultiAlarmTest(OneshotTest):
             led.set_mode("input")
 
         logging.info("Starting Multi-Alarm Test")
+        num_leds = 4  # we only have accesss to LEDs 1 and 2, but the test uses 4 LEDs
 
-        num_leds = len(led_pins)
         spacing = 1.0  # seconds between each LED
+
         interval = spacing * num_leds  # Total interval in seconds
-        test_duration = interval * 2 + spacing  # Ensure we capture at least two cycles
+
+        test_duration = (
+            interval * 3 + spacing
+        )  # Ensure we capture at least three cycles
 
         start_time = time.time()
 
