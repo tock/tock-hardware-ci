@@ -16,7 +16,7 @@ class ConsoleTimeoutTest(OneshotTest):
 
         # Wait for the application to initialize
         logging.info("Waiting for the application to initialize...")
-        time.sleep(10)  # Increased initialization wait time
+        time.sleep(2)  # Increased initialization wait time
 
         # Simulate user input by writing to the serial port
         test_input = b"Hello, Tock!"
