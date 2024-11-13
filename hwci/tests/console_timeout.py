@@ -25,7 +25,7 @@ class ConsoleTimeoutTest(OneshotTest):
 
         # Wait for the expected output from the application
         logging.info("Waiting for the application to output the result...")
-        pattern = r"Userspace call to read console returned: (.*)"
+        pattern = r"Userspace call to read console returned: (.*)\n"
         output = serial.expect(pattern, timeout=10)
 
         if output:
