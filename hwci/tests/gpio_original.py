@@ -14,7 +14,7 @@ class GpioOriginalTest(OneshotTest):
     def oneshot_test(self, board):
         gpio = board.gpio
 
-        gpio_pin_label = "P0.13"
+        gpio_pin_label = "P1.01"
         try:
             gpio_pin = gpio.pin(gpio_pin_label)
         except ValueError as e:
