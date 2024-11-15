@@ -34,7 +34,17 @@ class TockloaderBoard(BoardHarness):
 
         # Build the app using absolute paths
         logging.info(f"Building app: {app_name}")
-        subprocess.run(["make", f"TOCK_TARGETS={self.arch}"], cwd=app_dir, check=True)
+        if app_name != "lua-hello":
+            subprocess.run(
+                ["make", f"TOCK_TARGETS={self.arch}"], cwd=app_dir, check=True
+            )
+        else:
+            # if the app is lua-hello, we need to build the libtock-c submodule first so we need to change directory
+            # into the libtock-c directory so it knows we are in a git repostiory
+            self.change_directory(libtock_c_dir)
+            subprocess.run(
+                ["make", f"TOCK_TARGETS={self.arch}"], cwd=app_dir, check=True
+            )
 
         tab_file = os.path.join(app_dir, "build", f"{app_name}.tab")
         if not os.path.exists(tab_file):
