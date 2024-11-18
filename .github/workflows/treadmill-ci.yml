@@ -220,7 +220,8 @@ jobs:
           path: libtock-c
           repository: tock/libtock-c
           ref: ${{ inputs.libtock-c-ref }}
-          submodules: true
+          submodules: false
+          persist-credentials: true
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           # Avoid overwriting the RUSTFLAGS environment variable
@@ -243,6 +244,9 @@ jobs:
           curl --proto '=https' --tlsv1.2 -LsSf \
             https://github.com/probe-rs/probe-rs/releases/latest/download/probe-rs-tools-installer.sh \
             | sh
+      - name: Initialize lua submodule
+        run: |
+          git submodule update --init libtock-c/lua53/lua
       - name: Create Python virtual environment and install required dependencies
         run: |
           python3 -m venv ./hwcienv
