@@ -203,6 +203,10 @@ jobs:
       - name: Disable wget progress output
         run: |
           echo "verbose = off" >> $HOME/.wgetrc
+      - name: Install Git
+        run: |
+          apt-get update
+          apt-get install -y git
       - name: Checkout the Tock Hardware CI scripts
         uses: actions/checkout@v4
         with:
@@ -220,6 +224,7 @@ jobs:
           path: libtock-c
           repository: tock/libtock-c
           ref: ${{ inputs.libtock-c-ref }}
+          fetch-depth: 0  
           submodules: false
           persist-credentials: true
       - uses: actions-rust-lang/setup-rust-toolchain@v1
