@@ -267,9 +267,6 @@ jobs:
       #    curl --proto '=https' --tlsv1.2 -LsSf \
       #      https://github.com/probe-rs/probe-rs/releases/latest/download/probe-rs-tools-installer.sh \
       #      | sh
-      - name: Initialize lua submodule
-        run: |
-          git submodule update --init libtock-c/lua53/lua
       - name: Create Python virtual environment and install required dependencies
         run: |
           python3 -m venv ./hwcienv
