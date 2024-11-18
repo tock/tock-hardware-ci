@@ -176,7 +176,6 @@ jobs:
           echo "$TESTS_JSON" | jq -r -c '.[]' | while read TEST; do
             echo "| \`$TEST\` | \`$DUT_BOARD\` | [\`$TML_JOB_ID\`](#tml-job-summary-$TML_JOB_ID) |" >>"$GITHUB_STEP_SUMMARY"
           done
-
   test-execute:
     needs: test-prepare
     strategy:
@@ -221,6 +220,7 @@ jobs:
           path: libtock-c
           repository: tock/libtock-c
           ref: ${{ inputs.libtock-c-ref }}
+          submodules: true
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           # Avoid overwriting the RUSTFLAGS environment variable

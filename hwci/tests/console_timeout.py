@@ -29,7 +29,7 @@ class ConsoleTimeoutTest(OneshotTest):
         output = serial.expect(pattern, timeout=10)
 
         if output:
-            received_line = serial.child.after.decode("utf-8", errors="replace").strip()
+            received_line = output.decode("utf-8", errors="replace").strip()
             logging.info(f"Received output: {received_line}")
             match = re.search(pattern, received_line)
             if match:
