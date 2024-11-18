@@ -203,30 +203,6 @@ jobs:
       - name: Disable wget progress output
         run: |
           echo "verbose = off" >> $HOME/.wgetrc
-      - name: Install Git
-        run: |
-          apt-get update
-          apt-get install -y git
-      - name: Checkout the Tock Hardware CI scripts
-        uses: actions/checkout@v4
-        with:
-          repository: tock/tock-hardware-ci
-          ref: ${{ inputs.tock-hardware-ci-ref }}
-      - name: Checkout the Tock kernel repository
-        uses: actions/checkout@v4
-        with:
-          path: tock
-          repository: tock/tock
-          ref: ${{ inputs.tock-kernel-ref }}
-      - name: Checkout the libtock-c repository
-        uses: actions/checkout@v4
-        with:
-          path: libtock-c
-          repository: tock/libtock-c
-          ref: ${{ inputs.libtock-c-ref }}
-          fetch-depth: 0  
-          submodules: false
-          persist-credentials: true
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           # Avoid overwriting the RUSTFLAGS environment variable
@@ -249,6 +225,48 @@ jobs:
           curl --proto '=https' --tlsv1.2 -LsSf \
             https://github.com/probe-rs/probe-rs/releases/latest/download/probe-rs-tools-installer.sh \
             | sh
+      - name: Checkout the Tock Hardware CI scripts
+        uses: actions/checkout@v4
+        with:
+          repository: tock/tock-hardware-ci
+          ref: ${{ inputs.tock-hardware-ci-ref }}
+      - name: Checkout the Tock kernel repository
+        uses: actions/checkout@v4
+        with:
+          path: tock
+          repository: tock/tock
+          ref: ${{ inputs.tock-kernel-ref }}
+      - name: Checkout the libtock-c repository
+        uses: actions/checkout@v4
+        with:
+          path: libtock-c
+          repository: tock/libtock-c
+          ref: ${{ inputs.libtock-c-ref }}
+          fetch-depth: 0  
+          submodules: false
+          persist-credentials: true
+      #- uses: actions-rust-lang/setup-rust-toolchain@v1
+      #  with:
+      #    # Avoid overwriting the RUSTFLAGS environment variable
+      #    rustflags: ''
+      #- name: Install required system packages
+      #  run: |
+      #    # TODO: currently, the Netboot NBD targets have no access to their
+      #    # boot parition (e.g., mounted on /boot/firmware) on a Raspberry Pi OS
+      #    # host. This causes certain hooks in response to dpkg / apt commands
+      #    # to fail. Thus we ignore errors in these steps until we figure this
+      #    # part out.
+      #    sudo DEBIAN_FRONTEND=noninteractive apt update || true
+      #    sudo DEBIAN_FRONTEND=noninteractive apt install -y \
+      #      git cargo openocd python3 python3-pip python3-serial \
+      #      python3-pexpect gcc-arm-none-eabi libnewlib-arm-none-eabi \
+      #      pkg-config libudev-dev cmake libusb-1.0-0-dev udev make \
+      #     gdb-multiarch gcc-arm-none-eabi build-essential jq || true
+
+      #    # Install probe-rs:
+      #    curl --proto '=https' --tlsv1.2 -LsSf \
+      #      https://github.com/probe-rs/probe-rs/releases/latest/download/probe-rs-tools-installer.sh \
+      #      | sh
       - name: Initialize lua submodule
         run: |
           git submodule update --init libtock-c/lua53/lua
