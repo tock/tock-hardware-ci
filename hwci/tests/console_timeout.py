@@ -19,7 +19,7 @@ class ConsoleTimeoutTest(OneshotTest):
         time.sleep(2)  # Increased initialization wait time
 
         # Simulate user input by writing to the serial port
-        test_input = b"Hello, Tock!\n"
+        test_input = b"Hello, Tock!"
         serial.write(test_input)
         logging.info(f"Sent test input: {test_input.decode('utf-8')}")
 
