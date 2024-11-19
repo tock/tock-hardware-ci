@@ -22,6 +22,7 @@ class ConsoleTimeoutTest(OneshotTest):
         test_input = b"Hello, Tock!"
         serial.write(test_input)
         logging.info(f"Sent test input: {test_input.decode('utf-8')}")
+        time.sleep(7)  # takes 5 seconds for message to appear
 
         # Wait for the expected output from the application
         logging.info("Waiting for the application to output the result...")
