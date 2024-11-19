@@ -16,13 +16,13 @@ class ConsoleTimeoutTest(OneshotTest):
 
         # Wait for the application to initialize
         logging.info("Waiting for the application to initialize...")
-        time.sleep(2)  # Increased initialization wait time
+        time.sleep(2)  # Allow time for the app to start
 
         # Simulate user input by writing to the serial port
         test_input = b"Hello, Tock!"
         serial.write(test_input)
         logging.info(f"Sent test input: {test_input.decode('utf-8')}")
-        time.sleep(7)  # takes 5 seconds for message to appear
+        time.sleep(7)  # Wait for the application to process
 
         # Wait for the expected output from the application
         logging.info("Waiting for the application to output the result...")
@@ -34,14 +34,15 @@ class ConsoleTimeoutTest(OneshotTest):
             logging.info(f"Received output: {received_line}")
             match = serial.child.match  # Use the match object from serial.expect
             if match:
-                received_text = match.group(1)
-                # Check if received text starts with the first word of our input
-                expected_start = test_input.decode("utf-8").split(",")[0]
-                if received_text.startswith(expected_start):
+                received_text = match.group(1).decode(
+                    "utf-8", errors="replace"
+                )  # Decode bytes to str
+                expected_text = test_input.decode("utf-8")
+                if received_text.strip() == expected_text.strip():
                     logging.info("ConsoleTimeoutTest passed successfully.")
                 else:
                     logging.error(
-                        f"Expected text starting with '{expected_start}', but got '{received_text}'"
+                        f"Expected text '{expected_text}', but got '{received_text}'"
                     )
                     raise Exception(
                         "Test failed: Output does not match expected input."
