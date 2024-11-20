@@ -16,8 +16,10 @@
 # [1]: https://book.treadmill.ci/
 # [2]: https://github.com/treadmill-tb/treadmill
 # [3]: https://book.treadmill.ci/user-guide/github-actions-integration.html
+#
 
 name: treadmill-ci
+
 env:
   TERM: xterm # Makes tput work in actions output
 
@@ -39,6 +41,10 @@ on:
       libtock-c-ref:
         required: true
         type: string
+      tests-json:
+        required: false
+        type: string
+        default: '["tests/c_hello.py"]' # Default to single test for backward compatibility
 
 jobs:
   test-prepare:
@@ -46,6 +52,7 @@ jobs:
 
     # Do not run job on forks, as they will not have the correct environment set up
     if: github.repository == inputs.repository-filter
+
     environment: ${{ inputs.job-environment }}
 
     outputs:
@@ -77,16 +84,6 @@ jobs:
           popd
           echo "$PWD/treadmill/target/debug" >> "$GITHUB_PATH"
 
-      # - uses: actions/checkout@v4
-      #   with:
-      #     repository: tock/tock
-      #     ref: ${{ inputs.tock-kernel-ref }}
-      #     path: tock
-
-      # - name: Analyze changes and determine types of tests to run
-      #   run: |
-      #     echo "TODO: implement this!"
-
       - name: Generate a token to register new just-in-time runners
         id: generate-token
         uses: actions/create-github-app-token@v1
@@ -99,23 +96,21 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           TML_API_TOKEN: ${{ secrets.TREADMILL_API_TOKEN }}
-
           # Currently, all tests run only on hosts attached to an nRF52840DK
           DUT_BOARD: nrf52840dk
-
           # A Raspberry Pi OS netboot (NBD) image with a GitHub Actions
           # self-hosted runner pre-configured.
           #
           # For the available images see
           # https://book.treadmill.ci/treadmillci-deployment/images.html
-          IMAGE_ID: 1b6900eff30f37b6d012240f63aa77a22e20934e7f6ebf38e25310552dc08378
-
+          IMAGE_ID: df24da6c7a03d87b1b6b55162383a9dfdf48a129b5f3e648748f0f9d11cdb470
           # Limit the supervisors to hosts that are compatible with this
           # image. This is a hack until we introduce "image sets" which define
           # multiple images for various supervisor hosts, but otherwise behave
           # identically:
           HOST_TYPE: nbd-netboot
           HOST_ARCH: arm64
+          TESTS_JSON: ${{ inputs.tests-json }}
         run: |
           # When we eventually launch tests on multiple hardware platforms in
           # parallel, we need to supply different SUB_TEST_IDs here:
@@ -125,6 +120,7 @@ jobs:
           # registering and allows us to launch test-execute jobs on this exact
           # runner (connected to the exact board we want to run tests on).
           RUNNER_ID="tml-gh-actions-runner-${GITHUB_REPOSITORY_ID}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${SUB_TEST_ID}"
+
 
           # Obtain a new just-in-time runner registration token:
           RUNNER_CONFIG_JSON="$(gh api \
@@ -162,28 +158,33 @@ jobs:
           TML_JOB_ID="$(echo "$TML_JOB_ID_JSON" | jq -r .job_id)"
           echo "Enqueued Treadmill job with ID $TML_JOB_ID"
 
+
           # Pass the job IDs and other configuration data into the outputs of
           # this step, such that we can run test-execute job instances for each
           # Treadmill job we've started:
-          echo "tml-job-ids=[ \
-            \"$TML_JOB_ID\" \
-          ]" >> "$GITHUB_OUTPUT"
+          TML_JOB_IDS_OUTPUT="[ \"$TML_JOB_ID\" ]"
+          echo "Setting tml-job-ids output to ${TML_JOB_IDS_OUTPUT}"
+          echo "tml-job-ids=${TML_JOB_IDS_OUTPUT}" >> "$GITHUB_OUTPUT"
+          TML_JOBS_OUTPUT="{ \"$TML_JOB_ID\": { \"runner-id\": \"$RUNNER_ID\", \"tests\": $TESTS_JSON } }"
+          echo "Setting tml-jobs output to ${TML_JOBS_OUTPUT}"
+          echo "tml-jobs=${TML_JOBS_OUTPUT}" >> "$GITHUB_OUTPUT"
 
-          echo "tml-jobs={ \
-            \"$TML_JOB_ID\": { \
-              \"runner-id\": \"$RUNNER_ID\", \
-            } \
-          }" >> "$GITHUB_OUTPUT"
+          # Generate an overview over the scheduled jobs and their respective tests:
+          cat <<GITHUB_STEP_SUMMARY >>"$GITHUB_STEP_SUMMARY"
+          ## Test Overview
+          | Test | Board | Job |
+          |------|-------|-----|
+          GITHUB_STEP_SUMMARY
+          echo "$TESTS_JSON" | jq -r -c '.[]' | while read TEST; do
+            echo "| \`$TEST\` | \`$DUT_BOARD\` | [\`$TML_JOB_ID\`](#tml-job-summary-$TML_JOB_ID) |" >>"$GITHUB_STEP_SUMMARY"
+          done
 
   test-execute:
     needs: test-prepare
-
     strategy:
       matrix:
         tml-job-id: ${{ fromJSON(needs.test-prepare.outputs.tml-job-ids) }}
-
     runs-on: ${{ fromJSON(needs.test-prepare.outputs.tml-jobs)[matrix.tml-job-id].runner-id }}
-
     steps:
       - name: Print Treadmill Job Context and Debug Information
         run: |
@@ -207,6 +208,30 @@ jobs:
         run: |
           echo "verbose = off" >> $HOME/.wgetrc
 
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          # Avoid overwriting the RUSTFLAGS environment variable
+          rustflags: ''
+
+      - name: Install required system packages
+        run: |
+          # TODO: currently, the Netboot NBD targets have no access to their
+          # boot parition (e.g., mounted on /boot/firmware) on a Raspberry Pi OS
+          # host. This causes certain hooks in response to dpkg / apt commands
+          # to fail. Thus we ignore errors in these steps until we figure this
+          # part out.
+          sudo DEBIAN_FRONTEND=noninteractive apt update || true
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y \
+            git cargo openocd python3 python3-pip python3-serial \
+            python3-pexpect gcc-arm-none-eabi libnewlib-arm-none-eabi \
+            pkg-config libudev-dev cmake libusb-1.0-0-dev udev make \
+            gdb-multiarch gcc-arm-none-eabi build-essential jq || true
+
+          # Install probe-rs:
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            https://github.com/probe-rs/probe-rs/releases/latest/download/probe-rs-tools-installer.sh \
+            | sh
+
       - name: Checkout the Tock Hardware CI scripts
         uses: actions/checkout@v4
         with:
@@ -226,30 +251,9 @@ jobs:
           path: libtock-c
           repository: tock/libtock-c
           ref: ${{ inputs.libtock-c-ref }}
-
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          # Avoid overwriting the RUSTFLAGS environment variable
-          rustflags: ""
-
-      - name: Install required system packages
-        run: |
-          # TODO: currently, the Netboot NBD targets have no access to their
-          # boot parition (e.g., mounted on /boot/firmware) on a Raspberry Pi OS
-          # host. This causes certain hooks in response to dpkg / apt commands
-          # to fail. Thus we ignore errors in these steps until we figure this
-          # part out.
-          sudo DEBIAN_FRONTEND=noninteractive apt update || true
-          sudo DEBIAN_FRONTEND=noninteractive apt install -y \
-            git cargo openocd python3 python3-pip python3-serial \
-            python3-pexpect gcc-arm-none-eabi libnewlib-arm-none-eabi \
-            pkg-config libudev-dev cmake libusb-1.0-0-dev udev make \
-            gdb-multiarch gcc-arm-none-eabi build-essential || true
-
-          # Install probe-rs:
-          curl --proto '=https' --tlsv1.2 -LsSf \
-            https://github.com/probe-rs/probe-rs/releases/latest/download/probe-rs-tools-installer.sh \
-            | sh
+          fetch-depth: 0  
+          submodules: false
+          persist-credentials: true
 
       - name: Create Python virtual environment and install required dependencies
         run: |
@@ -258,11 +262,76 @@ jobs:
           pip install -r hwci/requirements.txt -c hwci/requirements-frozen.txt
 
       - name: Run tests
+        env:
+          JSON_TEST_ARRAY: ${{ toJSON(fromJSON(needs.test-prepare.outputs.tml-jobs)[matrix.tml-job-id].tests) }}
         run: |
           source ./hwcienv/bin/activate
           cd ./hwci
           export PYTHONPATH="$PWD:$PYTHONPATH"
-          python3 core/main.py --board boards/nrf52dk.py --test tests/c_hello.py
+          STEP_FAIL=0
+
+          # Generate a summary of all the tests executed:
+          cat <<GITHUB_STEP_SUMMARY >>"$GITHUB_STEP_SUMMARY"
+          ### <a id="tml-job-summary-${{ matrix.tml-job-id }}"></a>Tests executed on board \`nrf52840dk\`, job ID ${{ matrix.tml-job-id }}
+
+          | Result | Test |
+          |--------|------|
+          GITHUB_STEP_SUMMARY
+
+          while read TEST; do
+          # WHILE ---------->
+
+          # For markdown links, we want a sanitized test name without special characters
+          SANITIZED_TEST_NAME="${TEST//[^[:alnum:]]/_}"
+
+          # Prepare a collapsible section in the test output:
+          cat <<STEP_SUMMARY_DETAILS >>"./step-summary-details.txt"
+          <details>
+          <summary>Test \`$TEST\`</summary>
+          ##### <a id="#test-$SANITIZED_TEST_NAME"></a> Test \`$TEST\`
+
+          \`\`\`
+          STEP_SUMMARY_DETAILS
+
+          # Run the test script, saving its output:
+          echo "===== RUNNING TEST $TEST ====="
+          FAIL=0
+          set -o pipefail
+          python3 core/main.py --board boards/nrf52dk.py --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+          set +o pipefail
+
+          # Insert the result into the markdown table:
+          if [ "$FAIL" == "0" ]; then
+            echo "| ✅ | \`$TEST\` ([Output](#test-$SANITIZED_TEST_NAME)) |" >>"$GITHUB_STEP_SUMMARY"
+          else
+            echo "===== Test $TEST failed! ====="
+            echo "| ❌ | \`$TEST\` ([Output](#test-$SANITIZED_TEST_NAME)) |" >>"$GITHUB_STEP_SUMMARY"
+            STEP_FAIL=1
+          fi
+
+          # Sanitize the output (remove triple backslashes) and copy it into the step summary details:
+          cat ./job-output.txt | sed 's/```//g' >>"./step-summary-details.txt"
+
+          # Finalize this section of the test output summary:
+          cat <<STEP_SUMMARY_DETAILS >>"./step-summary-details.txt"
+          \`\`\`
+
+          </details>
+
+          STEP_SUMMARY_DETAILS
+
+          # -----------> DONE
+          done < <(echo "$JSON_TEST_ARRAY" | jq -r -c '.[]')
+
+          # Finally, add all test output sections to the overall step summary:
+          echo "" >>"$GITHUB_STEP_SUMMARY"
+          cat "./step-summary-details.txt" >>"$GITHUB_STEP_SUMMARY"
+
+          # Exit with an error if at least one test failed:
+          if [ "$STEP_FAIL" != "0" ]; then
+            echo "At least one test failed, exiting with error."
+            exit 1
+          fi
 
       - name: Request shutdown after successful job completion
         run: |

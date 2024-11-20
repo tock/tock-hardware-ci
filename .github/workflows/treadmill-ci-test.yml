@@ -26,8 +26,53 @@ permissions:
   contents: read
 
 jobs:
-  treadmill-ci:
+  analyze-changes:
+    runs-on: ubuntu-latest
+
+    outputs:
+      hwci-tests-json: ${{ steps.analyze-changes.outputs.hwci-tests-json }}
+
+    steps:
+      # This is not run within the context of a repository that contains actual
+      # kernel / userspace code, so there is nothing for us to analyze. Instead
+      # we clone this very repository and select all test definitions:
+      - name: Checkout the tock-hardware-ci repository
+        uses: actions/checkout@v4
+        with:
+          path: tock-hardware-ci
+
+      - name: Checkout the tock/tock repository
+        uses: actions/checkout@v4
+        with:
+          # Checkout the repository at the commit that triggered the workflow
+          repository: tock/tock
+          path: tock-tock
+
+      - name: Select all defined tests
+        id: analyze-changes
+        run: |
+          # Run the select_tests.py script
+          python3 tock-hardware-ci/hwci/select_tests.py \
+            --repo-path tock-tock \
+            --hwci-path tock-hardware-ci/hwci \
+            --output selected_tests.json
+
+          echo "Selected HWCI tests:"
+          cat selected_tests.json
+
+          # Output the tests JSON
+          hwci_tests_json=$(cat selected_tests.json | jq -c '.')
+          echo "hwci-tests-json=${hwci_tests_json}" >> "$GITHUB_OUTPUT"
+
+  run-treadmill-ci:
+    needs: [analyze-changes]
+
     uses: ./.github/workflows/treadmill-ci.yml
+
+    # This checks whether there is at least one test to run, see
+    # https://github.com/orgs/community/discussions/27125#discussioncomment-3254720
+    if: fromJSON(needs.analyze-changes.outputs.hwci-tests-json)[0] != null
+
     with:
       # Only run on a specific repository, as others will not have the right
       # environments set up and secrets configured. Forks may want to change
@@ -38,6 +83,7 @@ jobs:
       # appropriate environment (depending on the on: triggers above)
       job-environment: ${{ github.event_name == 'pull_request' && 'treadmill-ci' || 'treadmill-ci-merged' }}
 
+
       # This workflow tests the tock-hardware-ci scripts itself, so take the
       # current GITHUB_SHA:
       tock-hardware-ci-ref: ${{ github.sha }}
@@ -45,5 +91,6 @@ jobs:
       # Use the latest upstream Tock kernel / userspace components:
       tock-kernel-ref: 'master'
       libtock-c-ref: 'master'
+      tests-json: ${{ needs.analyze-changes.outputs.hwci-tests-json }}
 
     secrets: inherit
