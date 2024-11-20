@@ -11,7 +11,6 @@ on:
   push:
     branches:
       - main
-      - dev/test_ci_branch
   # Pull requests from forks will not have access to the required GitHub API
   # secrets below, even if they are using an appropriate deployment environment
   # and the workflow runs have been approved according to this environment's
@@ -29,7 +28,7 @@ permissions:
 jobs:
   analyze-changes:
     runs-on: ubuntu-latest
-    
+
     outputs:
       hwci-tests-json: ${{ steps.analyze-changes.outputs.hwci-tests-json }}
 

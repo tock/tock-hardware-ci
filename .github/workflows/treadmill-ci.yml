@@ -17,7 +17,6 @@
 # [2]: https://github.com/treadmill-tb/treadmill
 # [3]: https://book.treadmill.ci/user-guide/github-actions-integration.html
 #
-# WIP
 
 name: treadmill-ci
 env:
@@ -44,6 +43,7 @@ on:
         required: false
         type: string
         default: '["tests/c_hello.py"]' # Default to single test for backward compatibility
+
 jobs:
   test-prepare:
     runs-on: ubuntu-latest
@@ -62,12 +62,14 @@ jobs:
           # treadmill-tb/treadmill main as of Oct 1, 2024, 3:05 PM EDT
           ref: 'c82f4d7ebddd17f8275ba52139e64e04623f30cb'
           path: treadmill
+
       - name: Cache Treadmill CLI compilation artifacts
         id: cache-tml-cli
         uses: actions/cache@v4
         with:
           path: treadmill/target
           key: ${{ runner.os }}-tml-cli
+
       - name: Compile the Treadmill CLI binary
         run: |
           pushd treadmill
@@ -78,17 +80,12 @@ jobs:
       #   run: |
       #     echo "TODO: implement this!"
       - name: Generate a token to register new just-in-time runners
-        # - uses: actions/checkout@v4
-        #   with:
-        #     repository: tock/tock
-        #     ref: ${{ inputs.tock-kernel-ref }}
-        #     path: tock
-
         id: generate-token
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ vars.TREADMILL_GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.TREADMILL_GH_APP_PRIVATE_KEY }}
+
       - name: Create GitHub just-in-time runners and enqueue Treadmill jobs
         id: treadmill-job-launch
         env:
@@ -176,6 +173,7 @@ jobs:
           echo "$TESTS_JSON" | jq -r -c '.[]' | while read TEST; do
             echo "| \`$TEST\` | \`$DUT_BOARD\` | [\`$TML_JOB_ID\`](#tml-job-summary-$TML_JOB_ID) |" >>"$GITHUB_STEP_SUMMARY"
           done
+
   test-execute:
     needs: test-prepare
     strategy:
@@ -200,13 +198,16 @@ jobs:
           ls -lh /dev/ttyACM* 2>/dev/null || true
           ls -lh /dev/ttyUSB* 2>/dev/null || true
           ls -lh /dev/bus/usb/*/* 2>/dev/null || true
+
       - name: Disable wget progress output
         run: |
           echo "verbose = off" >> $HOME/.wgetrc
+
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           # Avoid overwriting the RUSTFLAGS environment variable
           rustflags: ''
+
       - name: Install required system packages
         run: |
           # TODO: currently, the Netboot NBD targets have no access to their
@@ -225,17 +226,20 @@ jobs:
           curl --proto '=https' --tlsv1.2 -LsSf \
             https://github.com/probe-rs/probe-rs/releases/latest/download/probe-rs-tools-installer.sh \
             | sh
+
       - name: Checkout the Tock Hardware CI scripts
         uses: actions/checkout@v4
         with:
           repository: tock/tock-hardware-ci
           ref: ${{ inputs.tock-hardware-ci-ref }}
+
       - name: Checkout the Tock kernel repository
         uses: actions/checkout@v4
         with:
           path: tock
           repository: tock/tock
           ref: ${{ inputs.tock-kernel-ref }}
+
       - name: Checkout the libtock-c repository
         uses: actions/checkout@v4
         with:
@@ -245,33 +249,13 @@ jobs:
           fetch-depth: 0  
           submodules: false
           persist-credentials: true
-      #- uses: actions-rust-lang/setup-rust-toolchain@v1
-      #  with:
-      #    # Avoid overwriting the RUSTFLAGS environment variable
-      #    rustflags: ''
-      #- name: Install required system packages
-      #  run: |
-      #    # TODO: currently, the Netboot NBD targets have no access to their
-      #    # boot parition (e.g., mounted on /boot/firmware) on a Raspberry Pi OS
-      #    # host. This causes certain hooks in response to dpkg / apt commands
-      #    # to fail. Thus we ignore errors in these steps until we figure this
-      #    # part out.
-      #    sudo DEBIAN_FRONTEND=noninteractive apt update || true
-      #    sudo DEBIAN_FRONTEND=noninteractive apt install -y \
-      #      git cargo openocd python3 python3-pip python3-serial \
-      #      python3-pexpect gcc-arm-none-eabi libnewlib-arm-none-eabi \
-      #      pkg-config libudev-dev cmake libusb-1.0-0-dev udev make \
-      #     gdb-multiarch gcc-arm-none-eabi build-essential jq || true
 
-      #    # Install probe-rs:
-      #    curl --proto '=https' --tlsv1.2 -LsSf \
-      #      https://github.com/probe-rs/probe-rs/releases/latest/download/probe-rs-tools-installer.sh \
-      #      | sh
       - name: Create Python virtual environment and install required dependencies
         run: |
           python3 -m venv ./hwcienv
           source ./hwcienv/bin/activate
           pip install -r hwci/requirements.txt -c hwci/requirements-frozen.txt
+
       - name: Run tests
         env:
           JSON_TEST_ARRAY: ${{ toJSON(fromJSON(needs.test-prepare.outputs.tml-jobs)[matrix.tml-job-id].tests) }}
@@ -343,9 +327,11 @@ jobs:
             echo "At least one test failed, exiting with error."
             exit 1
           fi
+
       - name: Request shutdown after successful job completion
         run: |
           sudo touch /run/github-actions-shutdown
+
       - name: Provide connection information on job failure
         if: failure()
         run: |
