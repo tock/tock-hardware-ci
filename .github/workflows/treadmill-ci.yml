@@ -103,7 +103,7 @@ jobs:
           #
           # For the available images see
           # https://book.treadmill.ci/treadmillci-deployment/images.html
-          IMAGE_ID: df24da6c7a03d87b1b6b55162383a9dfdf48a129b5f3e648748f0f9d11cdb470
+          IMAGE_ID: 441aa838c1fae3466cf682315aee44bcdb5c192054d6238e6c073ccd44b9bf06
           # Limit the supervisors to hosts that are compatible with this
           # image. This is a hack until we introduce "image sets" which define
           # multiple images for various supervisor hosts, but otherwise behave
