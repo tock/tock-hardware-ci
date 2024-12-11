@@ -2,9 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 # Copyright Tock Contributors 2024.
 
-pexpect
-pyserial
-tockloader
-pyyaml
-gpiozero
-lgpio
+from utils.test_helpers import WaitForConsoleMessageTest
+
+test = WaitForConsoleMessageTest(["lua-hello"], "Hello from Lua!")

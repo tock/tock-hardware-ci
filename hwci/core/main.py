@@ -16,7 +16,7 @@ def main():
 
     # Set up logging
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="%(asctime)s - %(levelname)s - %(message)s",
     )
 
@@ -48,7 +48,7 @@ def main():
         logging.exception("An error occurred during test execution")
         sys.exit(1)
     finally:
-        board.serial.close()
+        board.cleanup()
 
 
 if __name__ == "__main__":

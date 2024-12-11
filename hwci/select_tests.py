@@ -35,7 +35,7 @@ def main():
     # In the future, we will use repo-path to analyze the changes and select tests accordingly
 
     # Path to the tests directory within the tock-hardware-ci repository
-    tests_dir = os.path.join(args.hwci_path, "tests")
+    tests_dir = os.path.join(args.hwci_path, "hwci", "tests")
 
     # Find all .py files in the tests directory
     test_files = []
@@ -51,6 +51,7 @@ def main():
         json.dump(test_files, f)
 
     print(f"Selected HWCI tests: {test_files}")
+
 
 if __name__ == "__main__":
     main()
