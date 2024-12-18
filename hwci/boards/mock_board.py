@@ -33,6 +33,9 @@ class MockBoard(BoardHarness):
     def erase_board(self):
         logging.info("Mock erase of the board")
 
+    def reset(self):
+        logging.info("Mock board reset")
+
     def flash_kernel(self):
         logging.info("Mock flashing of the Tock OS kernel")
 

@@ -1,6 +1,7 @@
 import logging
 from core.test_harness import TestHarness
 
+
 class OneshotTest(TestHarness):
     def __init__(self, apps=[]):
         self.apps = apps

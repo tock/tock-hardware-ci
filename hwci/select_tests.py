@@ -52,5 +52,6 @@ def main():
 
     print(f"Selected HWCI tests: {test_files}")
 
+
 if __name__ == "__main__":
     main()
