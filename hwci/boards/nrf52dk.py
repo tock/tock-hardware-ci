@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 # Copyright Tock Contributors 2024.
 
+
 import os
 import subprocess
 import logging
@@ -11,13 +12,14 @@ from boards.tockloader_board import TockloaderBoard
 from utils.serial_port import SerialPort
 from gpio.gpio import GPIO
 import yaml
-import os
 
 
 class Nrf52dk(TockloaderBoard):
-    def __init__(self):
+    def __init__(self, serial_number=None, exclude_serial=None):
         super().__init__()
         self.arch = "cortex-m4"
+        self.serial_number = serial_number
+        self.exclude_serial = exclude_serial
         self.kernel_board_path = os.path.join(
             self.base_dir, "tock/boards/nordic/nrf52840dk"
         )
@@ -31,16 +33,62 @@ class Nrf52dk(TockloaderBoard):
     def get_uart_port(self):
         logging.info("Getting list of serial ports")
         ports = list(serial.tools.list_ports.comports())
-        for port in ports:
-            if "J-Link" in port.description:
-                logging.info(f"Found J-Link port: {port.device}")
-                return port.device
-        if ports:
-            logging.info(f"Automatically selected port: {ports[0].device}")
-            return ports[0].device
+
+        # Filter for J-Link devices
+        jlink_ports = [port for port in ports if "J-Link" in port.description]
+
+        if not jlink_ports:
+            logging.error("No J-Link devices found")
+            raise Exception("No J-Link devices found")
+
+        # Log available boards
+        for port in jlink_ports:
+            logging.info(
+                f"Found J-Link device: {port.device} (Serial: {port.serial_number})"
+            )
+
+        selected_port = None
+
+        # If we're looking for a specific serial number
+        if self.serial_number:
+            for port in jlink_ports:
+                if port.serial_number == self.serial_number:
+                    selected_port = port
+                    break
+            if not selected_port:
+                raise Exception(
+                    f"No J-Link device found with serial number {self.serial_number}"
+                )
+
+        # If we're excluding a specific serial number
+        elif self.exclude_serial:
+            for port in jlink_ports:
+                if port.serial_number != self.exclude_serial:
+                    selected_port = port
+                    break
+            if not selected_port:
+                raise Exception(
+                    f"No J-Link device found other than {self.exclude_serial}"
+                )
+
+        # If no specific selection criteria, use the first available port
         else:
-            logging.error("No serial ports found")
-            raise Exception("No serial ports found")
+            selected_port = jlink_ports[0]
+
+        logging.info(
+            f"Selected J-Link device: {selected_port.device} (Serial: {selected_port.serial_number})"
+        )
+        return selected_port.device
+
+    def get_board_serial(board):
+        """Get the serial number of the J-Link device associated with the board."""
+        port = next(
+            port
+            for port in serial.tools.list_ports.comports()
+            if port.device == board.uart_port
+        )
+
+        return port.serial_number
 
     def get_uart_baudrate(self):
         return 115200  # Default baudrate for the board
