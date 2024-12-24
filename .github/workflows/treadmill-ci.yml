@@ -216,7 +216,9 @@ jobs:
           # Avoid overwriting the RUSTFLAGS environment variable
           rustflags: ''
 
-      - name: Install required system packages
+      # This is required for the actions/checkout steps to perform a
+      # proper git clone that also supports checking out submodules:
+      - name: Install git
         run: |
           # TODO: currently, the Netboot NBD targets have no access to their
           # boot parition (e.g., mounted on /boot/firmware) on a Raspberry Pi OS
@@ -224,16 +226,7 @@ jobs:
           # to fail. Thus we ignore errors in these steps until we figure this
           # part out.
           sudo DEBIAN_FRONTEND=noninteractive apt update || true
-          sudo DEBIAN_FRONTEND=noninteractive apt install -y \
-            git cargo openocd python3 python3-pip python3-serial \
-            python3-pexpect gcc-arm-none-eabi libnewlib-arm-none-eabi \
-            pkg-config libudev-dev cmake libusb-1.0-0-dev udev make \
-            gdb-multiarch gcc-arm-none-eabi build-essential jq || true
-
-          # Install probe-rs:
-          curl --proto '=https' --tlsv1.2 -LsSf \
-            https://github.com/probe-rs/probe-rs/releases/latest/download/probe-rs-tools-installer.sh \
-            | sh
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y git
 
       - name: Checkout the Tock Hardware CI scripts
         uses: actions/checkout@v4
@@ -244,33 +237,32 @@ jobs:
       - name: Checkout the Tock kernel repository
         uses: actions/checkout@v4
         with:
-          path: tock
+          path: hwci/repos/tock
           repository: tock/tock
           ref: ${{ inputs.tock-kernel-ref }}
 
       - name: Checkout the libtock-c repository
         uses: actions/checkout@v4
         with:
-          path: libtock-c
+          path: hwci/repos/libtock-c
           repository: tock/libtock-c
           ref: ${{ inputs.libtock-c-ref }}
-          fetch-depth: 0  
+          fetch-depth: 0
           submodules: false
           persist-credentials: true
 
-      - name: Create Python virtual environment and install required dependencies
+      - name: Run setup script
         run: |
-          python3 -m venv ./hwcienv
-          source ./hwcienv/bin/activate
-          pip install -r hwci/requirements.txt -c hwci/requirements-frozen.txt
+          cd ./hwci/
+          ./setup.sh
 
       - name: Run tests
         env:
           JSON_TEST_ARRAY: ${{ toJSON(fromJSON(needs.test-prepare.outputs.tml-jobs)[matrix.tml-job-id].tests) }}
         run: |
-          source ./hwcienv/bin/activate
           cd ./hwci
-          export PYTHONPATH="$PWD:$PYTHONPATH"
+          source ./.venv/bin/activate
+
           STEP_FAIL=0
 
           # Generate a summary of all the tests executed:
