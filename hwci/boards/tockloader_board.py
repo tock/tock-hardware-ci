@@ -16,8 +16,17 @@ class TockloaderBoard(BoardHarness):
         self.board = None  # Should be set in subclass
         self.arch = None  # Should be set in subclass
         self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.args = None
+
+    def set_args(self, args):
+        self.args = args
 
     def flash_app(self, app_path):
+        if self.args.no_flash_apps:
+            logging.warning(f"Skipping flashing app {app_path}, resetting the board instead.")
+            self.reset()
+            return
+
         app_name = os.path.basename(app_path)
         logging.info(f"Flashing app: {app_name}")
         libtock_c_dir = os.path.join(self.base_dir, "repos", "libtock-c")
