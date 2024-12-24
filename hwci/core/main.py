@@ -6,7 +6,7 @@ import argparse
 import logging
 import importlib.util
 import sys
-
+from pathlib import Path
 
 def main():
     parser = argparse.ArgumentParser(description="Run tests on Tock OS")
@@ -19,6 +19,10 @@ def main():
         level=logging.DEBUG,
         format="%(asctime)s - %(levelname)s - %(message)s",
     )
+
+    # Ensure that imported modules can find the top-level hwci modules
+    # (appends the hwci root to the PYTHONPATH):
+    sys.path.append(str(Path(__file__).parent.parent))
 
     # 1. Load board module
     board_spec = importlib.util.spec_from_file_location("board_module", args.board)
