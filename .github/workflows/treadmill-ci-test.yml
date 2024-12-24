@@ -21,6 +21,21 @@ on:
   # allows this workflow to run without access to repository secrets.
   #pull_request:
   merge_group: # Run CI for the GitHub merge queue
+  # Manually dispatch for a specific branch (will require approval
+  # through the treadmill-ci-merged environment:
+  workflow_dispatch:
+    inputs:
+      tock-kernel-ref:
+        description: 'Ref (revision/branch/tag) of the upstream Tock repo to test'
+        required: true
+        default: 'master'
+      libtock-c-ref:
+        description: 'Ref (revision/branch/tag) of the upstream libtock-c repo to test'
+        required: true
+        default: 'master'
+      tests-json:
+        description: 'tests-json value passed to HWCI workflow (if empty, output from analyze-changes step is used)'
+        required: false
 
 permissions:
   contents: read
@@ -89,8 +104,8 @@ jobs:
       tock-hardware-ci-ref: ${{ github.sha }}
 
       # Use the latest upstream Tock kernel / userspace components:
-      tock-kernel-ref: 'master'
-      libtock-c-ref: 'master'
-      tests-json: ${{ needs.analyze-changes.outputs.hwci-tests-json }}
+      tock-kernel-ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tock-kernel-ref || 'master' }}
+      libtock-c-ref: ${{ github.event_name == 'workflow_dispatch' && inputs.libtock-c-ref || 'master' }}
+      tests-json: ${{ (github.event_name == 'workflow_dispatch' && inputs.tests-json != '') && inputs.tests-json || needs.analyze-changes.outputs.hwci-tests-json }}
 
     secrets: inherit
