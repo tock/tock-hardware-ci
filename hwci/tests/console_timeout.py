@@ -22,6 +22,7 @@ class ConsoleTimeoutTest(OneshotTest):
         serial.flush_buffer()
         test_input = b"Hello, Tock!\r\n"
         for b in test_input:
+            time.sleep(0.01) # imix doesn't like this being sent too quickly!
             serial.write(bytes([b]))
         #serial.write(test_input)
         logging.info(f"Sent test input: {test_input.decode('utf-8')}")

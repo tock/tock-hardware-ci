@@ -31,7 +31,7 @@ class Nrf52dk(TockloaderBoard):
         self.gpio = self.get_gpio_interface()
 
     def get_uart_port(self):
-        logging.info("Getting list of serial ports")
+        logging.info("Getting list of serial ports!")
         ports = list(serial.tools.list_ports.comports())
         for port in ports:
             if "J-Link" in port.description:

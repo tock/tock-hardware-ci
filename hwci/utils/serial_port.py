@@ -59,7 +59,7 @@ class SerialPort:
         self.ser.reset_output_buffer()
         logging.info("Flushed serial buffers")
 
-    def expect(self, pattern, timeout=10):
+    def expect(self, pattern, timeout=10, timeout_error=True):
         assert self.ser is not None, "Serial port is not open!"
 
         try:
@@ -67,9 +67,10 @@ class SerialPort:
             logging.debug(f"Matched pattern '{pattern}'")
             return self.child.after
         except fdpexpect.TIMEOUT:
-            received_data = self.child.before.decode("utf-8", errors="replace")
-            logging.error(f"Timeout waiting for pattern '{pattern}'")
-            logging.error(f"Received so far:\n{received_data}")
+            if timeout_error:
+                received_data = self.child.before.decode("utf-8", errors="replace")
+                logging.error(f"Timeout waiting for pattern '{pattern}'")
+                logging.error(f"Received so far:\n{received_data}")
             return None
         except fdpexpect.EOF:
             received_data = self.child.before.decode("utf-8", errors="replace")

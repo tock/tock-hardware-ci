@@ -13,6 +13,7 @@ from utils.serial_port import SerialPort
 from gpio.gpio import GPIO
 import yaml
 import os
+import traceback
 
 class Imix(TockloaderBoard):
     def __init__(self):
