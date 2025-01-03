@@ -12,6 +12,9 @@ def main():
     parser = argparse.ArgumentParser(description="Run tests on Tock OS")
     parser.add_argument("--board", required=True, help="Path to the board module")
     parser.add_argument("--test", required=True, help="Path to the test module")
+    parser.add_argument("--no-erase", action="store_true", help="Do not erase the board before the test")
+    parser.add_argument("--no-flash-kernel", action="store_true", help="Disable flashing the Tock kernel, instead perform a reset")
+    parser.add_argument("--no-flash-apps", action="store_true", help="Disable flashing applications, instead perform a reset")
     args = parser.parse_args()
 
     # Set up logging
@@ -30,6 +33,7 @@ def main():
     board_spec.loader.exec_module(board_module)
     if hasattr(board_module, "board"):
         board = board_module.board
+        board.set_args(args)
     else:
         logging.error("No board class found in the specified board module")
         sys.exit(1)

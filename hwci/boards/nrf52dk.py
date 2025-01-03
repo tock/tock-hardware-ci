@@ -67,6 +67,11 @@ class Nrf52dk(TockloaderBoard):
             self.serial.close()
 
     def flash_kernel(self):
+        if self.args.no_flash_kernel:
+            logging.warning(f"Skipping flashing the Tock kernel, resetting the board instead.")
+            self.reset()
+            return
+
         logging.info("Flashing the Tock OS kernel")
         if not os.path.exists(self.kernel_path):
             logging.error(f"Tock directory {self.kernel_path} not found")
@@ -78,6 +83,11 @@ class Nrf52dk(TockloaderBoard):
         )
 
     def erase_board(self):
+        if self.args.no_erase:
+            logging.warning(f"Skipping board erase, performing reset instead.")
+            self.reset()
+            return
+
         logging.info("Erasing the board")
         command = [
             "openocd",
