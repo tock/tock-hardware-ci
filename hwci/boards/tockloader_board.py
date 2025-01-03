@@ -17,8 +17,16 @@ class TockloaderBoard(BoardHarness):
         self.arch = None  # Should be set in subclass
         self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    def flash_app(self, app_path):
-        app_name = os.path.basename(app_path)
+    def flash_app(self, app):
+        if type(app) == str:
+            app_path = app
+            app_name = os.path.basename(app_path)
+            tab_file = os.path.join("build", f"{app_name}.tab")
+        else:
+            app_path = app["path"]
+            app_name = app["name"]
+            tab_file = app["tab_file"] # relative to "path"
+
         logging.info(f"Flashing app: {app_name}")
         libtock_c_dir = os.path.join(self.base_dir, "repos", "libtock-c")
         if not os.path.exists(libtock_c_dir):
@@ -44,10 +52,10 @@ class TockloaderBoard(BoardHarness):
                 ["make", f"TOCK_TARGETS={self.arch}"], cwd=app_dir, check=True
             )
 
-        tab_file = os.path.join(app_dir, "build", f"{app_name}.tab")
-        if not os.path.exists(tab_file):
-            logging.error(f"Tab file {tab_file} not found")
-            raise FileNotFoundError(f"Tab file {tab_file} not found")
+        tab_path = os.path.join(app_dir, tab_file)
+        if not os.path.exists(tab_path):
+            logging.error(f"Tab file {tab_path} not found")
+            raise FileNotFoundError(f"Tab file {tab_path} not found")
         logging.info(f"Installing app: {app_name}")
         subprocess.run(
             [
@@ -56,7 +64,7 @@ class TockloaderBoard(BoardHarness):
                 "--board",
                 self.board,
                 "--openocd",
-                tab_file,
+                tab_path,
             ],
             check=True,
         )
