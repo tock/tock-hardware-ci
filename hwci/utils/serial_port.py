@@ -47,7 +47,9 @@ class SerialPort:
 
     def write(self, data):
         logging.debug(f"Writing data: {data}")
-        self.ser.write(data)
+        for byte in data:
+            self.ser.write(bytes([byte]))
+            time.sleep(0.1)
 
     def close(self):
         self.ser.close()
