@@ -97,8 +97,11 @@ class Board:
 
         self.panic_board()
         self.log_info(f"[READY] {self.board_serial_no} initialized and halted.")
-    
+        self.nrfjprog_api.close()
+
+    # Function to run test. Output_queue is used to place output (instead of return)
     def run_test(self, duration):
+        self.init_nrfjprog()
         # We reset board and save output to log
         ser = serial.Serial(self.board_com_port, BAUD_RATE, timeout = 1)
 
@@ -110,13 +113,14 @@ class Board:
         
         start_time = time.time()
         while time.time() - start_time < duration:
-            try: 
+            try:
                 input.append(ser.readline().decode('ascii').strip())
             except: 
                 continue
-            time.sleep(0.1)
 
         ser.close()
+        self.nrfjprog_api.close()
+
         self.log_info(f"[COMPLETE] {self.app_name} test on {self.board_serial_no}.")
         return input 
 
