@@ -31,7 +31,6 @@ class SerialPort:
     def expect(self, pattern, timeout=10, timeout_error=True):
         try:
             index = self.child.expect(pattern, timeout=timeout)
-            logging.debug(f"Matched pattern '{pattern}'")
             return self.child.after
         except fdpexpect.TIMEOUT:
             if timeout_error:

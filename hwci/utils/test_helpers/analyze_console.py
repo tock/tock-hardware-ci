@@ -10,14 +10,13 @@ class AnalyzeConsoleTest(OneshotTest):
             while True:
                 output = serial.expect(".+", timeout=5, timeout_error=False)
                 if output is not None:
-                    line = output.decode("utf-8", errors="replace").strip()
-                    logging.info(f"SERIAL OUTPUT: {line}")
                     collected_output += output
                 else:
                     break
         except Exception as e:
             logging.error(f"Error during serial communication: {e}")
 
+        logging.info(f"Captured output: {collected_output.decode('utf-8', errors='replace')}")
         self.analyze(collected_output)
         logging.info("Finished AnalyzeConsoleTest")
 
