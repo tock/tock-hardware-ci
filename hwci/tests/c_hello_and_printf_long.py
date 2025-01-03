@@ -14,7 +14,7 @@ class CHelloAndPrintfLong(AnalyzeConsoleTest):
         ])
 
     def analyze(self, output):
-        lines = output.decode("utf-8").split("\n")
+        lines = output.decode(encoding="utf-8", errors="ignore").split("\n")
 
         messages = [
             ["Hi welcome to Tock. This test makes sure that a greater than 64 byte message can be printed.", None],
