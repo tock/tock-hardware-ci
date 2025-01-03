@@ -28,15 +28,16 @@ class SerialPort:
         self.ser.reset_output_buffer()
         logging.info("Flushed serial buffers")
 
-    def expect(self, pattern, timeout=10):
+    def expect(self, pattern, timeout=10, timeout_error=True):
         try:
             index = self.child.expect(pattern, timeout=timeout)
             logging.debug(f"Matched pattern '{pattern}'")
             return self.child.after
         except fdpexpect.TIMEOUT:
-            received_data = self.child.before.decode("utf-8", errors="replace")
-            logging.error(f"Timeout waiting for pattern '{pattern}'")
-            logging.error(f"Received so far:\n{received_data}")
+            if timeout_error:
+                received_data = self.child.before.decode("utf-8", errors="replace")
+                logging.error(f"Timeout waiting for pattern '{pattern}'")
+                logging.error(f"Received so far:\n{received_data}")
             return None
         except fdpexpect.EOF:
             received_data = self.child.before.decode("utf-8", errors="replace")
@@ -62,7 +63,7 @@ class MockSerialPort:
         logging.debug(f"Writing data: {data}")
         self.buffer.put(data)
 
-    def expect(self, pattern, timeout=10):
+    def expect(self, pattern, timeout=10, timeout_error=True):
         end_time = time.time() + timeout
         compiled_pattern = re.compile(pattern.encode())
         while time.time() < end_time:
