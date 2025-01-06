@@ -62,7 +62,8 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y \
   git cargo openocd python3 python3-pip python3-serial \
   python3-pexpect gcc-arm-none-eabi libnewlib-arm-none-eabi \
   pkg-config libudev-dev cmake libusb-1.0-0-dev udev make \
-  gdb-multiarch gcc-arm-none-eabi build-essential jq || true
+  gdb-multiarch gcc-arm-none-eabi build-essential jq \
+  gcc-riscv64-unknown-elf || true
 
 # If we don't have any of the tock or libtock-c repos checked out, clone them
 # here. We never want to do this for CI, as that'll want to check out specific

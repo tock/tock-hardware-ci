@@ -24,6 +24,7 @@ class OneshotTest(TestHarness):
         if not board.open_serial_during_flash:
             board.serial.open()
 
+        board.wait_boot()
         self.oneshot_test(board)
 
         logging.info("Finished OneshotTest")

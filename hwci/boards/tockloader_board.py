@@ -15,8 +15,10 @@ class TockloaderBoard(BoardHarness):
         super().__init__()
         self.board = None  # Should be set in subclass
         self.arch = None  # Should be set in subclass
+        self.tock_targets = None # Optional
         self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.program_method = "serial_bootloader"
+        self.program_args = []
         self.app_sha256_credential = False
 
     def flash_app(self, app):
@@ -43,8 +45,11 @@ class TockloaderBoard(BoardHarness):
 
         make_args = [
             "make",
-            f"TOCK_TARGETS={self.arch}"
-        ]
+            "-j",
+        ] + (
+            [f"TOCK_TARGETS={self.tock_targets}"]
+            if self.tock_targets is not None else []
+        )
         # if self.app_sha256_credential:
         #     make_args.append("ELF2TAB_ARGS=\"--sha256\"")
 
@@ -69,6 +74,8 @@ class TockloaderBoard(BoardHarness):
             program_method_arg = "--jlink"
         elif self.program_method == "openocd":
             program_method_arg = "--openocd"
+        elif self.program_method == "none":
+            program_method_arg = None
         else:
             raise NotImplemented(f"Unknown program method: {self.program_method}")
 
@@ -79,11 +86,13 @@ class TockloaderBoard(BoardHarness):
                 "install",
                 "--board",
                 self.board,
-                program_method_arg,
-                tab_path,
-            ],
+            ]
+            + ([program_method_arg] if program_method_arg is not None else [])
+            + self.program_args
+            + [tab_path],
             check=True,
         )
+        self.reset()
 
     def get_uart_port(self):
         raise NotImplementedError
@@ -93,6 +102,9 @@ class TockloaderBoard(BoardHarness):
 
     def erase_board(self):
         raise NotImplementedError
+
+    def wait_boot(self):
+        pass
 
     def reset(self):
         raise NotImplementedError
