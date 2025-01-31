@@ -105,7 +105,7 @@ jobs:
           #
           # For the available images see
           # https://book.treadmill.ci/treadmillci-deployment/images.html
-          IMAGE_ID: 441aa838c1fae3466cf682315aee44bcdb5c192054d6238e6c073ccd44b9bf06
+          IMAGE_ID: f94b8f8edd54321e6370d898f87ccbd2659a67ed0300fda2adc8099cdd157790
 
           # Limit the supervisors to hosts that are compatible with this
           # image. This is a hack until we introduce "image sets" which define
@@ -193,6 +193,7 @@ jobs:
         run: |
           echo "Treadmill job id: ${{ matrix.tml-job-id }}"
           echo "GitHub Actions Runner ID: ${{ fromJSON(needs.test-prepare.outputs.tml-jobs)[matrix.tml-job-id] }}"
+          echo "Host ID: $(cat /run/tml/host-id)"
           echo "===== Parameters: ====="
           ls /run/tml/parameters
           echo "===== User & group configuration: ====="
