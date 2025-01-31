@@ -1,0 +1,32 @@
+model: nrf52840dk
+serial_number: '56f98833-da16-4ba0-9f38-2b02cfd01ddd'
+board_module: hwci/boards/nrf52dk.py
+features:
+  ble: true
+  debugger: jlink
+  gpio: true
+pin_mappings:
+  P0.13:
+    io_interface: raspberrypi5gpio
+    io_pin_spec: 20
+    target_pin_function: LED1
+    target_pin_mode: output
+    target_pin_active: low
+  P0.14:
+    io_interface: raspberrypi5gpio
+    io_pin_spec: 19
+    target_pin_function: LED2
+    target_pin_mode: output
+    target_pin_active: low
+  P0.11:
+    io_interface: raspberrypi5gpio
+    io_pin_spec: 21
+    target_pin_function: BUTTON1
+    target_pin_mode: input
+    target_pin_active: low
+  P0.12:
+    io_interface: raspberrypi5gpio
+    io_pin_spec: 26
+    target_pin_function: BUTTON2
+    target_pin_mode: input
+    target_pin_active: low

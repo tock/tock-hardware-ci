@@ -37,7 +37,6 @@ set -e -x
 # of its own build process:
 type rustup || (echo "rustup is not installed, aborting."; exit 1)
 
-# Ensure that `elf2tab` is installed:
 if ! type elf2tab; then
 	# We may not have a rustup default toolchain selected. In this case,
 	# select the stable toolchain for elf2tab.
