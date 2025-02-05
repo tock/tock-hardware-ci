@@ -1,11 +1,10 @@
 model: nrf52840dk
-serial_number: "1bdc10a7-9bea-4da5-9e9c-02c046223dfb"
+serial_number: '64e5e94d-67e9-4276-9a0c-509a6789b372'
 board_module: boards/nrf52dk.py
-
 features:
   ble: true
   debugger: jlink
-
+  gpio: true
 pin_mappings:
   P0.13:
     io_interface: raspberrypi5gpio
