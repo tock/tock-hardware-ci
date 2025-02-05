@@ -1,8 +1,0 @@
-model: nrf52840dk
-serial_number: 68221128
-
-board_module: boards/nrf52dk.py
-
-features:
-  ble: true
-  debugger: jlink
