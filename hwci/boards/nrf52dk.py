@@ -18,10 +18,10 @@ class Nrf52dk(TockloaderBoard):
     def __init__(self):
         super().__init__()
         self.arch = "cortex-m4"
-        self.kernel_path = os.path.join(
-            self.base_dir, "repos/tock")
+        self.kernel_path = os.path.join(self.base_dir, "repos/tock")
         self.kernel_board_path = os.path.join(
-            self.kernel_path, "boards/nordic/nrf52840dk")
+            self.kernel_path, "boards/nordic/nrf52840dk"
+        )
         self.uart_port = self.get_uart_port()
         self.uart_baudrate = self.get_uart_baudrate()
         self.openocd_board = "nrf52dk"
@@ -79,21 +79,41 @@ class Nrf52dk(TockloaderBoard):
 
     def erase_board(self):
         logging.info("Erasing the board")
+
+        # Retrieve the serial number stored in the board descriptor
+        # (populated by main.py after YAML is loaded).
+        jlink_serial = getattr(self, "serial_number", None)
+
+        if jlink_serial:
+            # If this board descriptor has a serial_number, pass it to OpenOCD
+            cmd_string = (
+                f"adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; "
+                f"hla_serial {jlink_serial}; "
+                "init; nrf52_recover; exit"
+            )
+        else:
+            # If no serial number was given, fallback to the older command
+            cmd_string = (
+                "adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; "
+                "init; nrf52_recover; exit"
+            )
+
         command = [
             "openocd",
             "-c",
-            "adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; init; nrf52_recover; exit",
+            cmd_string,
         ]
+        logging.info(f"Running OpenOCD command: {command}")
         subprocess.run(command, check=True)
 
-    def reset(self):
-        logging.info("Performing a target reset via JTAG")
-        command = [
-            "openocd",
-            "-c",
-            "adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; init; reset; exit",
-        ]
-        subprocess.run(command, check=True)
+        def reset(self):
+            logging.info("Performing a target reset via JTAG")
+            command = [
+                "openocd",
+                "-c",
+                "adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; init; reset; exit",
+            ]
+            subprocess.run(command, check=True)
 
     # The flash_app method is inherited from TockloaderBoard
 
