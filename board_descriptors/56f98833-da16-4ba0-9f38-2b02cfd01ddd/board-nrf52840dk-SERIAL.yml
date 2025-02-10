@@ -1,6 +1,6 @@
 model: nrf52840dk
 serial_number: '56f98833-da16-4ba0-9f38-2b02cfd01ddd'
-board_module: boards/nrf52dk.py
+board_module: hwci/boards/nrf52dk.py
 features:
   ble: true
   debugger: jlink
