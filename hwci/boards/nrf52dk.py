@@ -53,11 +53,15 @@ class Nrf52dk(TockloaderBoard):
         return SerialPort(self.uart_port, self.uart_baudrate)
 
     def get_gpio_interface(self):
-        # Load the target spec from a YAML file
-        target_spec = load_target_spec()
-        # Initialize GPIO with the target spec
-        gpio = GPIO(target_spec)
-        return gpio
+        # Instead of loading from target_spec.yaml, use self.pin_mappings
+        if not hasattr(self, "pin_mappings"):
+            logging.info(
+                "No pin_mappings found in board descriptor; skipping GPIO init."
+            )
+            return None
+        # The GPIO class expects a dict with a 'pin_mappings' key, so wrap it:
+        target_spec = {"pin_mappings": self.pin_mappings}
+        return GPIO(target_spec)
 
     def cleanup(self):
         if self.gpio:
@@ -127,14 +131,6 @@ class Nrf52dk(TockloaderBoard):
         finally:
             os.chdir(previous_dir)
             logging.info(f"Reverted to directory: {os.getcwd()}")
-
-
-def load_target_spec():
-    # Assume the target spec file is in a fixed location
-    target_spec_path = os.path.join(os.getcwd(), "target_spec.yaml")
-    with open(target_spec_path, "r") as f:
-        target_spec = yaml.safe_load(f)
-    return target_spec
 
 
 board = Nrf52dk()

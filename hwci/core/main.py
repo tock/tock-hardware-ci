@@ -16,6 +16,12 @@ from pathlib import Path
 #     board_descriptors/host1234/board-nrf52840dk-99001122.yml \
 #   --test hwci/tests/ble_advertising_scanning_test.py
 
+# python3 hwci/core/main.py \
+#   --board-descriptors \
+#     board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050202501.yml \
+#     board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050244773.yml \
+#   --test hwci/tests/ble_advertising_scanning_test.py
+
 
 def main():
     parser = argparse.ArgumentParser(description="Run tests on Tock OS")
