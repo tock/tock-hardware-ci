@@ -71,53 +71,79 @@ class Nrf52dk(TockloaderBoard):
             self.serial.close()
 
     def flash_kernel(self):
+        """
+        Flash the Tock OS kernel onto this board using Tock's Makefile target.
+        Pass the board's serial number via the JLINK_SERIAL env variable if known.
+        """
         logging.info("Flashing the Tock OS kernel")
         if not os.path.exists(self.kernel_path):
             logging.error(f"Tock directory {self.kernel_path} not found")
             raise FileNotFoundError(f"Tock directory {self.kernel_path} not found")
 
-        # Run make flash-openocd from the board directory
+        # Copy current environment and set JLINK_SERIAL if we have it:
+        env = os.environ.copy()
+        if getattr(self, "serial_number", None):
+            env["JLINK_SERIAL"] = str(self.serial_number)
+            logging.info(
+                f"Setting JLINK_SERIAL={self.serial_number} for make flash-openocd"
+            )
+
+        # Run `make flash-openocd` from the board directory
         subprocess.run(
-            ["make", "flash-openocd"], cwd=self.kernel_board_path, check=True
+            ["make", "flash-openocd"],
+            cwd=self.kernel_board_path,
+            check=True,
+            env=env,
         )
 
     def erase_board(self):
+        """
+        Run `nrf52_recover` to do a mass-erase and unlock the chip over SWD,
+        specifying the adapter's serial if provided.
+        """
         logging.info("Erasing the board")
-
-        # Retrieve the serial number stored in the board descriptor
-        # (populated by main.py after YAML is loaded).
         jlink_serial = getattr(self, "serial_number", None)
 
         if jlink_serial:
-            # If this board descriptor has a serial_number, pass it to OpenOCD
+            # Use `adapter serial` rather than the deprecated `hla_serial`
             cmd_string = (
                 f"adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; "
-                f"hla_serial {jlink_serial}; "
+                f"adapter serial {jlink_serial}; "
                 "init; nrf52_recover; exit"
             )
         else:
-            # If no serial number was given, fallback to the older command
+            # If no serial number was given, fallback without specifying one
             cmd_string = (
                 "adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; "
                 "init; nrf52_recover; exit"
             )
 
-        command = [
-            "openocd",
-            "-c",
-            cmd_string,
-        ]
+        command = ["openocd", "-c", cmd_string]
         logging.info(f"Running OpenOCD command: {command}")
         subprocess.run(command, check=True)
 
-        def reset(self):
-            logging.info("Performing a target reset via JTAG")
-            command = [
-                "openocd",
-                "-c",
-                "adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; init; reset; exit",
-            ]
-            subprocess.run(command, check=True)
+    def reset(self):
+        """
+        Issue a reset command over SWD.
+        """
+        logging.info("Performing a target reset via JTAG/SWD")
+        jlink_serial = getattr(self, "serial_number", None)
+
+        if jlink_serial:
+            cmd_string = (
+                f"adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; "
+                f"adapter serial {jlink_serial}; "
+                "init; reset; exit"
+            )
+        else:
+            cmd_string = (
+                "adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; "
+                "init; reset; exit"
+            )
+
+        command = ["openocd", "-c", cmd_string]
+        logging.info(f"Running OpenOCD command: {command}")
+        subprocess.run(command, check=True)
 
     # The flash_app method is inherited from TockloaderBoard
 
