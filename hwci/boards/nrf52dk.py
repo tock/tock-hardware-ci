@@ -18,17 +18,18 @@ class Nrf52dk(TockloaderBoard):
         self.arch = "cortex-m4"
 
         # Path to Tock's root directory
-        self.kernel_path = os.path.join(self.base_dir, "repos/tock")
+        self.kernel_path = os.path.join(self.base_dir, "repos", "tock")
+
         # Path to the nrf52840dk board folder in Tock
         self.kernel_board_path = os.path.join(
-            self.kernel_path, "boards/nordic/nrf52840dk"
+            self.kernel_path, "boards", "nordic", "nrf52840dk"
         )
 
         self.uart_port = self.get_uart_port()
         self.uart_baudrate = self.get_uart_baudrate()
 
-        # For Tockloader-based installs we set --board
-        self.openocd_board = "nrf52dk"
+        # Tockloader board info
+        self.openocd_board = "nrf52dk"  # Matches `--board nrf52dk` in Tockloader
         self.board = "nrf52dk"
 
         self.serial = self.get_serial_port()
@@ -49,7 +50,7 @@ class Nrf52dk(TockloaderBoard):
             raise Exception("No serial ports found")
 
     def get_uart_baudrate(self):
-        return 115200  # Default baudrate
+        return 115200
 
     def get_serial_port(self):
         logging.info(
@@ -58,8 +59,11 @@ class Nrf52dk(TockloaderBoard):
         return SerialPort(self.uart_port, self.uart_baudrate)
 
     def get_gpio_interface(self):
+        # If there is no 'pin_mappings' attribute, skip GPIO config
         if not hasattr(self, "pin_mappings"):
-            logging.info("No pin_mappings found in board descriptor; skipping GPIO init.")
+            logging.info(
+                "No pin_mappings found in board descriptor; skipping GPIO init."
+            )
             return None
 
         target_spec = {"pin_mappings": self.pin_mappings}
@@ -74,30 +78,29 @@ class Nrf52dk(TockloaderBoard):
 
     def flash_kernel(self):
         """
-        Flash the Tock OS kernel with 'make flash-openocd' + Tockloader.
-
-        Because we cannot edit the Makefile, we override TOCKLOADER_GENERAL_FLAGS
-        to ensure Tockloader sees '--jlink <serial>'.
+        Flash the Tock OS kernel with "make flash-openocd" + Tockloader.
+        We pass the J-Link serial number to Tockloader via "--openocd-options",
+        which Tockloader then appends to its OpenOCD invocation.
         """
         logging.info("Flashing the Tock OS kernel")
         if not os.path.exists(self.kernel_path):
             raise FileNotFoundError(f"Tock directory {self.kernel_path} not found")
 
-        # Prepare environment for 'make flash-openocd' call
+        # Prepare environment for 'make flash-openocd'
         env = os.environ.copy()
 
-        # If this board has a 'serial_number', inject it into Tockloader flags:
+        # If this board has a 'serial_number', inject that into Tockloader flags:
         jlink_serial = getattr(self, "serial_number", None)
         if jlink_serial:
-            # Take any existing TOCKLOADER_GENERAL_FLAGS from the environment,
-            # and append our --jlink argument:
+            # Instead of "--jlink <SN>", we use:
+            #   --openocd --openocd-options "adapter serial <SN>"
             existing_flags = env.get("TOCKLOADER_GENERAL_FLAGS", "")
-            # Add verbose/debug if you want more logging from Tockloader:
-            override_flags = f"--jlink {jlink_serial} --debug --verbose"
-
+            override_flags = (
+                "--openocd --debug --verbose "
+                + f'--openocd-options "adapter serial {jlink_serial}"'
+            )
             new_flags = existing_flags.strip() + " " + override_flags
             env["TOCKLOADER_GENERAL_FLAGS"] = new_flags.strip()
-
             logging.info(
                 f"Using TOCKLOADER_GENERAL_FLAGS={env['TOCKLOADER_GENERAL_FLAGS']}"
             )
@@ -113,6 +116,7 @@ class Nrf52dk(TockloaderBoard):
     def erase_board(self):
         """
         Issue an nrf52_recover over SWD, specifying 'adapter serial <SN>' if available.
+        This uses OpenOCD directly to mass erase/unlock the chip.
         """
         logging.info("Erasing the board")
         jlink_serial = getattr(self, "serial_number", None)
@@ -168,5 +172,5 @@ class Nrf52dk(TockloaderBoard):
             logging.info(f"Reverted to directory: {os.getcwd()}")
 
 
-# The required 'board' global that your test harness imports.
+# Global board object used by the test harness
 board = Nrf52dk()
