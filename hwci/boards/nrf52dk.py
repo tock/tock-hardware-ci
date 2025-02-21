@@ -18,7 +18,7 @@ class Nrf52dk(TockloaderBoard):
     def __init__(self):
         super().__init__()
         self.arch = "cortex-m4"
-        self.kernel_path = os.path.join(self.base_dir, "hwci/repos/tock")
+        self.kernel_path = os.path.join(self.base_dir, "repos/tock")
         self.kernel_board_path = os.path.join(
             self.kernel_path, "boards/nordic/nrf52840dk"
         )
