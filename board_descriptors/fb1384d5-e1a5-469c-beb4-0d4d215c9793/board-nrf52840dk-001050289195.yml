@@ -1,5 +1,5 @@
 model: nrf52840dk
-serial_number: '001050289195'
+serial_number: '1050289195'
 board_module: hwci/boards/nrf52dk.py
 features:
   ble: true
