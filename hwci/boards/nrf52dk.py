@@ -67,13 +67,38 @@ class Nrf52dk(TockloaderBoard):
 
             logging.warning(f"No serial port found matching J-Link SN: {board_serial}")
 
-        # If we get here, we couldn't find a port by serial number
-        logging.error(
-            f"Could not find serial port for board with serial number: {board_serial}"
-        )
-        raise Exception(
-            f"Could not find serial port for board with serial number: {board_serial}"
-        )
+        # If no serial number is provided or we couldn't find a match,
+        # just return the first J-Link port for now (this will be replaced later)
+        jlink_ports = [p for p in ports if "J-Link" in p.description]
+        if jlink_ports:
+            selected_port = jlink_ports[0].device
+            logging.info(
+                f"No serial number provided or match found. Using first J-Link port: {selected_port}"
+            )
+            return selected_port
+
+        # If no J-Link ports were found at all
+        if ports:
+            logging.warning(
+                f"No J-Link ports found. Using first available port: {ports[0].device}"
+            )
+            return ports[0].device
+
+        logging.error("No serial ports found")
+        raise Exception("No serial ports found")
+
+    def update_serial_port(self):
+        """Update the serial port based on the current serial_number attribute."""
+        if hasattr(self, "serial_number") and self.serial_number:
+            old_port = self.uart_port
+            self.uart_port = self.get_uart_port()
+            if old_port != self.uart_port:
+                logging.info(f"Updated serial port from {old_port} to {self.uart_port}")
+                # Close the old serial port if it exists
+                if self.serial:
+                    self.serial.close()
+                # Create a new serial port object
+                self.serial = self.get_serial_port()
 
     def get_uart_baudrate(self):
         return 115200
