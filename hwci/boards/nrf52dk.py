@@ -114,9 +114,8 @@ class Nrf52dk(TockloaderBoard):
         tockloader_cmd.extend(
             [
                 "--openocd",
-                "--debug",
                 "--openocd-board",
-                "board/nordic_nrf52_dk.cfg",  # Correct path we found
+                "board/nordic_nrf52_dk.cfg",
                 "--address",
                 "0x00000",
                 "--board",
@@ -178,6 +177,76 @@ class Nrf52dk(TockloaderBoard):
         command = ["openocd", "-c", cmd_string]
         logging.info(f"Running OpenOCD command: {command}")
         subprocess.run(command, check=True)
+
+    def flash_app(self, app):
+        if type(app) == str:
+            app_path = app
+            app_name = os.path.basename(app_path)
+            tab_file = os.path.join("build", f"{app_name}.tab")
+        else:
+            app_path = app["path"]
+            app_name = app["name"]
+            tab_file = app["tab_file"]  # relative to "path"
+
+        logging.info(f"Flashing app: {app_name}")
+        libtock_c_dir = os.path.join(self.base_dir, "repos", "libtock-c")
+        if not os.path.exists(libtock_c_dir):
+            logging.error(f"libtock-c directory {libtock_c_dir} not found")
+            raise FileNotFoundError(f"libtock-c directory {libtock_c_dir} not found")
+
+        app_dir = os.path.join(libtock_c_dir, "examples", app_path)
+        if not os.path.exists(app_dir):
+            logging.error(f"App directory {app_dir} not found")
+            raise FileNotFoundError(f"App directory {app_dir} not found")
+
+        # Build the app using absolute paths
+        logging.info(f"Building app: {app_name}")
+        if app_name != "lua-hello":
+            subprocess.run(
+                ["make", f"TOCK_TARGETS={self.arch}"], cwd=app_dir, check=True
+            )
+        else:
+            # if the app is lua-hello, we need to build the libtock-c submodule first
+            with self.change_directory(libtock_c_dir):
+                subprocess.run(
+                    ["make", f"TOCK_TARGETS={self.arch}"], cwd=app_dir, check=True
+                )
+
+        tab_path = os.path.join(app_dir, tab_file)
+        if not os.path.exists(tab_path):
+            logging.error(f"Tab file {tab_path} not found")
+            raise FileNotFoundError(f"Tab file {tab_path} not found")
+
+        logging.info(f"Installing app: {app_name}")
+
+        # Get the serial number of this board
+        serial_number = getattr(self, "serial_number", None)
+
+        # Build the tockloader command with the correct order of arguments
+        tockloader_cmd = ["tockloader", "install"]
+
+        # Add serial number if available
+        if serial_number:
+            tockloader_cmd.extend(["--openocd-serial-number", serial_number])
+
+        # Add the rest of the arguments
+        tockloader_cmd.extend(
+            [
+                "--openocd",
+                "--openocd-board",
+                "board/nordic_nrf52_dk.cfg",  # Correct path we found
+                "--board",
+                self.board,
+                tab_path,
+            ]
+        )
+
+        # Run the tockloader command
+        logging.info(f"Running tockloader command: {' '.join(tockloader_cmd)}")
+        subprocess.run(
+            tockloader_cmd,
+            check=True,
+        )
 
     @contextmanager
     def change_directory(self, new_dir):
