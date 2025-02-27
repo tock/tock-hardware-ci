@@ -43,43 +43,37 @@ class Nrf52dk(TockloaderBoard):
         board_serial = getattr(self, "serial_number", None)
         if board_serial:
             logging.info(f"Looking for serial port with J-Link SN: {board_serial}")
-            # Try to find a port that matches our serial number
+
+            # Find ports that match our serial number
+            matching_ports = []
             for port in ports:
-                # Examine port details to find serial number
-                port_details = port.hwid if hasattr(port, "hwid") else ""
-                if board_serial in port_details:
-                    logging.info(
-                        f"Found matching J-Link port for SN {board_serial}: {port.device}"
-                    )
-                    return port.device
+                # Check if our serial number is in the port's serial_number or hwid
+                if (
+                    hasattr(port, "serial_number")
+                    and board_serial == port.serial_number
+                ):
+                    matching_ports.append(port)
+                elif hasattr(port, "hwid") and board_serial in port.hwid:
+                    matching_ports.append(port)
 
-        # If we don't have a serial number or couldn't find a match,
-        # try to find any J-Link port
-        jlink_ports = []
-        for port in ports:
-            if "J-Link" in port.description:
-                jlink_ports.append(port)
-                logging.info(f"Found J-Link port: {port.device} - {port.description}")
-
-        if jlink_ports:
-            # If we have J-Link ports but couldn't match by serial,
-            # log a warning but return the first one
-            if board_serial:
-                logging.warning(
-                    f"Couldn't find J-Link port matching serial {board_serial}. "
-                    f"Using first available J-Link port: {jlink_ports[0].device}"
+            # Sort matching ports by device name to pick the lower-numbered one
+            if matching_ports:
+                matching_ports.sort(key=lambda p: p.device)
+                selected_port = matching_ports[0].device
+                logging.info(
+                    f"Found matching J-Link port for SN {board_serial}: {selected_port}"
                 )
-            return jlink_ports[0].device
+                return selected_port
 
-        # If no J-Link ports were found, try any available port
-        if ports:
-            logging.warning(
-                f"No J-Link ports found. Automatically selected port: {ports[0].device}"
-            )
-            return ports[0].device
+            logging.warning(f"No serial port found matching J-Link SN: {board_serial}")
 
-        logging.error("No serial ports found")
-        raise Exception("No serial ports found")
+        # If we get here, we couldn't find a port by serial number
+        logging.error(
+            f"Could not find serial port for board with serial number: {board_serial}"
+        )
+        raise Exception(
+            f"Could not find serial port for board with serial number: {board_serial}"
+        )
 
     def get_uart_baudrate(self):
         return 115200

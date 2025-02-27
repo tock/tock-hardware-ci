@@ -32,6 +32,14 @@ class BleAdvertisingScanningTest(TestHarness):
                 f"Board 2 SN: {getattr(scanner, 'serial_number', 'unknown')}"
             )
 
+        # Log the selected ports for debugging
+        logging.info(
+            f"Advertiser (SN: {advertiser.serial_number}) using port: {advertiser.uart_port}"
+        )
+        logging.info(
+            f"Scanner (SN: {scanner.serial_number}) using port: {scanner.uart_port}"
+        )
+
         # Erase & reflash the kernel on both boards:
         advertiser.erase_board()
         scanner.erase_board()
