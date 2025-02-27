@@ -78,41 +78,59 @@ class Nrf52dk(TockloaderBoard):
 
     def flash_kernel(self):
         """
-        Flash the Tock OS kernel with 'make flash-openocd' + Tockloader.
+        Flash the Tock OS kernel using tockloader directly (bypassing the Makefile).
         """
         logging.info("Flashing the Tock OS kernel")
         if not os.path.exists(self.kernel_path):
             raise FileNotFoundError(f"Tock directory {self.kernel_path} not found")
 
-        # Prepare environment for 'make flash-openocd' call
-        env = os.environ.copy()
-
-        # If this board has a 'serial_number', inject it into Tockloader flags:
-        serial_number = getattr(self, "serial_number", None)
-        if serial_number:
-            # IMPORTANT: Don't include --openocd here since it's added by the Makefile
-            # Take any existing TOCKLOADER_GENERAL_FLAGS from the environment,
-            # and append our --openocd-serial-number argument:
-            existing_flags = env.get("TOCKLOADER_GENERAL_FLAGS", "")
-
-            # Use equals sign format for the serial number parameter to avoid parsing issues
-            override_flags = (
-                f"--openocd-serial-number={serial_number} --debug --verbose"
-            )
-
-            new_flags = existing_flags.strip() + " " + override_flags
-            env["TOCKLOADER_GENERAL_FLAGS"] = new_flags.strip()
-
-            logging.info(
-                f"Using TOCKLOADER_GENERAL_FLAGS={env['TOCKLOADER_GENERAL_FLAGS']}"
-            )
-
-        # Invoke "make flash-openocd" in the Tock board directory
+        # Make sure the kernel is built and ready
         subprocess.run(
-            ["make", "flash-openocd"],
+            ["make"],
             cwd=self.kernel_board_path,
             check=True,
-            env=env,
+        )
+
+        # Path to the kernel binary
+        kernel_bin = os.path.join(
+            self.kernel_path, "target/thumbv7em-none-eabi/release/nrf52840dk.bin"
+        )
+
+        # Get the serial number of this board
+        serial_number = getattr(self, "serial_number", None)
+        if not serial_number:
+            logging.warning(
+                "No serial number specified for board. Using first available board."
+            )
+
+        # Build the tockloader command with the correct order of arguments
+        tockloader_cmd = ["tockloader", "flash"]
+
+        # Order matters! These flags must come AFTER the 'flash' command
+        if serial_number:
+            tockloader_cmd.extend(["--openocd-serial-number", serial_number])
+
+        # Add the rest of the arguments
+        tockloader_cmd.extend(
+            [
+                "--openocd",
+                "--debug",
+                "--verbose",
+                "--openocd-board",
+                "board/nordic/nrf52dk",  # Correct path to the board config
+                "--address",
+                "0x00000",
+                "--board",
+                "nrf52dk",
+                kernel_bin,
+            ]
+        )
+
+        # Run the tockloader command
+        logging.info(f"Running tockloader command: {' '.join(tockloader_cmd)}")
+        subprocess.run(
+            tockloader_cmd,
+            check=True,
         )
 
     def erase_board(self):
