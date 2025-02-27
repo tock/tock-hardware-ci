@@ -23,6 +23,15 @@ class BleAdvertisingScanningTest(TestHarness):
         advertiser = boards[0]
         scanner = boards[1]
 
+        # Check that we're not using the same serial port for both boards
+        if advertiser.uart_port == scanner.uart_port:
+            raise ValueError(
+                f"Both boards are using the same serial port: {advertiser.uart_port}. "
+                f"Each board must have a unique serial port. "
+                f"Board 1 SN: {getattr(advertiser, 'serial_number', 'unknown')}, "
+                f"Board 2 SN: {getattr(scanner, 'serial_number', 'unknown')}"
+            )
+
         # Erase & reflash the kernel on both boards:
         advertiser.erase_board()
         scanner.erase_board()

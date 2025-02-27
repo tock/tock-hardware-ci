@@ -38,16 +38,48 @@ class Nrf52dk(TockloaderBoard):
     def get_uart_port(self):
         logging.info("Getting list of serial ports")
         ports = list(serial.tools.list_ports.comports())
+
+        # First, check if we have a serial_number to match
+        board_serial = getattr(self, "serial_number", None)
+        if board_serial:
+            logging.info(f"Looking for serial port with J-Link SN: {board_serial}")
+            # Try to find a port that matches our serial number
+            for port in ports:
+                # Examine port details to find serial number
+                port_details = port.hwid if hasattr(port, "hwid") else ""
+                if board_serial in port_details:
+                    logging.info(
+                        f"Found matching J-Link port for SN {board_serial}: {port.device}"
+                    )
+                    return port.device
+
+        # If we don't have a serial number or couldn't find a match,
+        # try to find any J-Link port
+        jlink_ports = []
         for port in ports:
             if "J-Link" in port.description:
-                logging.info(f"Found J-Link port: {port.device}")
-                return port.device
+                jlink_ports.append(port)
+                logging.info(f"Found J-Link port: {port.device} - {port.description}")
+
+        if jlink_ports:
+            # If we have J-Link ports but couldn't match by serial,
+            # log a warning but return the first one
+            if board_serial:
+                logging.warning(
+                    f"Couldn't find J-Link port matching serial {board_serial}. "
+                    f"Using first available J-Link port: {jlink_ports[0].device}"
+                )
+            return jlink_ports[0].device
+
+        # If no J-Link ports were found, try any available port
         if ports:
-            logging.info(f"Automatically selected port: {ports[0].device}")
+            logging.warning(
+                f"No J-Link ports found. Automatically selected port: {ports[0].device}"
+            )
             return ports[0].device
-        else:
-            logging.error("No serial ports found")
-            raise Exception("No serial ports found")
+
+        logging.error("No serial ports found")
+        raise Exception("No serial ports found")
 
     def get_uart_baudrate(self):
         return 115200
