@@ -78,7 +78,7 @@ class Nrf52dk(TockloaderBoard):
 
     def flash_kernel(self):
         """
-        Flash the Tock OS kernel using tockloader directly (bypassing the Makefile).
+        Flash the Tock OS kernel using tockloader directly with correct board config.
         """
         logging.info("Flashing the Tock OS kernel")
         if not os.path.exists(self.kernel_path):
@@ -115,9 +115,8 @@ class Nrf52dk(TockloaderBoard):
             [
                 "--openocd",
                 "--debug",
-                "--verbose",
                 "--openocd-board",
-                "board/nordic/nrf52dk",  # Correct path to the board config
+                "board/nordic_nrf52_dk.cfg",  # Correct path we found
                 "--address",
                 "0x00000",
                 "--board",
