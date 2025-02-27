@@ -78,29 +78,37 @@ class Nrf52dk(TockloaderBoard):
 
     def flash_kernel(self):
         """
-        Flash the Tock OS kernel with "make flash-openocd" + Tockloader.
-        We pass the J-Link serial number to Tockloader via "--openocd-options",
-        which Tockloader then appends to its OpenOCD invocation.
+        Flash the Tock OS kernel with 'make flash-openocd' + Tockloader.
+
+        Uses the --openocd-serial-number flag to target a specific board.
         """
         logging.info("Flashing the Tock OS kernel")
         if not os.path.exists(self.kernel_path):
             raise FileNotFoundError(f"Tock directory {self.kernel_path} not found")
 
-        # Prepare environment for 'make flash-openocd'
+        # Prepare environment for 'make flash-openocd' call
         env = os.environ.copy()
 
-        # If this board has a 'serial_number', inject that into Tockloader flags:
-        jlink_serial = getattr(self, "serial_number", None)
-        if jlink_serial:
-            # Instead of "--jlink <SN>", we use:
-            #   --openocd --openocd-options "adapter serial <SN>"
+        # Add path to tockloader (adjust as needed for your environment)
+        # If using a virtual environment:
+        if os.path.exists(os.path.join(self.base_dir, ".venv/bin")):
+            venv_bin = os.path.abspath(os.path.join(self.base_dir, ".venv/bin"))
+            env["PATH"] = f"{venv_bin}:{env.get('PATH', '')}"
+
+        # If this board has a 'serial_number', inject it into Tockloader flags:
+        serial_number = getattr(self, "serial_number", None)
+        if serial_number:
+            # Take any existing TOCKLOADER_GENERAL_FLAGS from the environment,
+            # and append our --openocd-serial-number argument:
             existing_flags = env.get("TOCKLOADER_GENERAL_FLAGS", "")
+            # Add verbose/debug if you want more logging from Tockloader:
             override_flags = (
-                "--openocd --debug --verbose "
-                + f'--openocd-options "adapter serial {jlink_serial}"'
+                f"--openocd --openocd-serial-number {serial_number} --debug --verbose"
             )
+
             new_flags = existing_flags.strip() + " " + override_flags
             env["TOCKLOADER_GENERAL_FLAGS"] = new_flags.strip()
+
             logging.info(
                 f"Using TOCKLOADER_GENERAL_FLAGS={env['TOCKLOADER_GENERAL_FLAGS']}"
             )
