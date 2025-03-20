@@ -13,6 +13,7 @@
 # [1]: https://book.treadmill.ci/
 # [2]: https://github.com/treadmill-tb/treadmill
 # [3]: https://book.treadmill.ci/user-guide/github-actions-integration.html
+# TEST
 name: treadmill-ci-ble-test
 env:
   TERM: xterm # Makes tput work in actions output
