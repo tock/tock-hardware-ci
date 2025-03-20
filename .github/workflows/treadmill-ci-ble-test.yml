@@ -68,5 +68,5 @@ jobs:
       multi-board: 'true'
       supervisor-id: 'fb1384d5-e1a5-469c-beb4-0d4d215c9793'
       board-descriptors: >-
-        ../board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050202501.yml ../board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050244773.yml
+        board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050202501.yml board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050244773.yml
     secrets: inherit

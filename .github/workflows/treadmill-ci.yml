@@ -295,8 +295,10 @@ jobs:
           SUPERVISOR_ID: ${{ inputs.supervisor-id }}
           BOARD_DESCRIPTORS: ${{ inputs.board-descriptors }}
         run: |
+          # MODIFY BEFORE merge vvvvv
           cd ./hwci
           source ./.venv/bin/activate
+          cd ..
 
           STEP_FAIL=0
 
