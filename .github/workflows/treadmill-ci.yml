@@ -45,6 +45,19 @@ on:
         required: false
         type: string
         default: '["tests/c_hello.py"]' # Default to single test for backward compatibility
+      # New inputs for multi-board tests
+      multi-board:
+        required: false
+        type: string
+        default: 'false'
+      supervisor-id:
+        required: false
+        type: string
+        default: ''
+      board-descriptors:
+        required: false
+        type: string
+        default: ''
 
 jobs:
   test-prepare:
@@ -115,6 +128,9 @@ jobs:
           HOST_ARCH: arm64
 
           TESTS_JSON: ${{ inputs.tests-json }}
+          # Support for specific supervisor targeting for multi-board tests
+          MULTI_BOARD: ${{ inputs.multi-board }}
+          SUPERVISOR_ID: ${{ inputs.supervisor-id }}
         run: |
           # When we eventually launch tests on multiple hardware platforms in
           # parallel, we need to supply different SUB_TEST_IDs here:
@@ -152,11 +168,22 @@ jobs:
           }"
 
           echo "Enqueueing treadmill job:"
-          TML_JOB_ID_JSON="$(tml job enqueue \
-            "$IMAGE_ID" \
-            --tag-config "board:$DUT_BOARD;host-type:$HOST_TYPE;host-arch:$HOST_ARCH" \
-            --parameters "$TML_JOB_PARAMETERS" \
-          )"
+          
+          # If this is a multi-board test targeting a specific supervisor
+          if [ "$MULTI_BOARD" = "true" ] && [ -n "$SUPERVISOR_ID" ]; then
+            TML_JOB_ID_JSON="$(tml job enqueue \
+              "$IMAGE_ID" \
+              --tag-config "supervisor:$SUPERVISOR_ID;host-type:$HOST_TYPE;host-arch:$HOST_ARCH" \
+              --parameters "$TML_JOB_PARAMETERS" \
+            )"
+          else
+            # Default job enqueue for single board tests
+            TML_JOB_ID_JSON="$(tml job enqueue \
+              "$IMAGE_ID" \
+              --tag-config "board:$DUT_BOARD;host-type:$HOST_TYPE;host-arch:$HOST_ARCH" \
+              --parameters "$TML_JOB_PARAMETERS" \
+            )"
+          fi
 
           TML_JOB_ID="$(echo "$TML_JOB_ID_JSON" | jq -r .job_id)"
           echo "Enqueued Treadmill job with ID $TML_JOB_ID"
@@ -179,7 +206,11 @@ jobs:
           |------|-------|-----|
           GITHUB_STEP_SUMMARY
           echo "$TESTS_JSON" | jq -r -c '.[]' | while read TEST; do
-            echo "| \`$TEST\` | \`$DUT_BOARD\` | [\`$TML_JOB_ID\`](#tml-job-summary-$TML_JOB_ID) |" >>"$GITHUB_STEP_SUMMARY"
+            BOARD_INFO="$DUT_BOARD"
+            if [ "$MULTI_BOARD" = "true" ]; then
+              BOARD_INFO="Multiple boards on supervisor $SUPERVISOR_ID"
+            fi
+            echo "| \`$TEST\` | \`$BOARD_INFO\` | [\`$TML_JOB_ID\`](#tml-job-summary-$TML_JOB_ID) |" >>"$GITHUB_STEP_SUMMARY"
           done
 
   test-execute:
@@ -192,7 +223,7 @@ jobs:
       - name: Print Treadmill Job Context and Debug Information
         run: |
           echo "Treadmill job id: ${{ matrix.tml-job-id }}"
-          echo "GitHub Actions Runner ID: ${{ fromJSON(needs.test-prepare.outputs.tml-jobs)[matrix.tml-job-id] }}"
+          echo "GitHub Actions Runner ID: ${{ fromJSON(needs.test-prepare.outputs.tml-jobs)[matrix.tml-job-id].runner-id }}"
           echo "===== Parameters: ====="
           ls /run/tml/parameters
           echo "===== User & group configuration: ====="
@@ -259,6 +290,9 @@ jobs:
       - name: Run tests
         env:
           JSON_TEST_ARRAY: ${{ toJSON(fromJSON(needs.test-prepare.outputs.tml-jobs)[matrix.tml-job-id].tests) }}
+          MULTI_BOARD: ${{ inputs.multi-board }}
+          SUPERVISOR_ID: ${{ inputs.supervisor-id }}
+          BOARD_DESCRIPTORS: ${{ inputs.board-descriptors }}
         run: |
           cd ./hwci
           source ./.venv/bin/activate
@@ -267,7 +301,7 @@ jobs:
 
           # Generate a summary of all the tests executed:
           cat <<GITHUB_STEP_SUMMARY >>"$GITHUB_STEP_SUMMARY"
-          ### <a id="tml-job-summary-${{ matrix.tml-job-id }}"></a>Tests executed on board \`nrf52840dk\`, job ID ${{ matrix.tml-job-id }}
+          ### <a id="tml-job-summary-${{ matrix.tml-job-id }}"></a>Tests executed on job ID ${{ matrix.tml-job-id }}
 
           | Result | Test |
           |--------|------|
@@ -292,7 +326,22 @@ jobs:
           echo "===== RUNNING TEST $TEST ====="
           FAIL=0
           set -o pipefail
-          python3 core/main.py --board boards/nrf52dk.py --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+
+          # Check if this is a multi-board test with specific board descriptors
+          if [ "$MULTI_BOARD" = "true" ] && [ -n "$BOARD_DESCRIPTORS" ]; then
+            echo "Running multi-board test with specified board descriptors"
+            BOARD_DESC_ARGS=""
+            for DESC in $BOARD_DESCRIPTORS; do
+              BOARD_DESC_ARGS+=" --board-descriptors $DESC"
+            done
+
+            # Run test with multiple board descriptors
+            python3 core/main.py $BOARD_DESC_ARGS --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+          else
+            # Run standard single-board test
+            python3 core/main.py --board boards/nrf52dk.py --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+          fi
+
           set +o pipefail
 
           # Insert the result into the markdown table:
