@@ -1,7 +1,6 @@
 # Licensed under the Apache License, Version 2.0 or the MIT License.
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 # Copyright Tock Contributors 2024.
-
 # This workflow contains Treadmill-based hardware CI for nightly BLE testing.
 #
 # Treadmill is a distributed hardware testbed developed within the Tock OS
@@ -19,7 +18,7 @@ env:
   TERM: xterm # Makes tput work in actions output
 # Controls when the action will run.
 on:
-  # Manual trigger only
+  # Manual trigger
   workflow_dispatch:
     inputs:
       tock-kernel-ref:
@@ -30,6 +29,10 @@ on:
         description: 'Ref (revision/branch/tag) of the upstream libtock-c repo to test'
         required: true
         default: 'master'
+  # Add push trigger for your branch
+  push:
+    branches:
+      - dev/mult-board-treadmill
 permissions:
   contents: read
 jobs:
