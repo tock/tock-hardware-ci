@@ -339,10 +339,10 @@ jobs:
             done
 
             # Run test with multiple board descriptors
-            python3 core/main.py $BOARD_DESC_ARGS --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+            python3 hwcl/core/main.py $BOARD_DESC_ARGS --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
           else
             # Run standard single-board test
-            python3 core/main.py --board boards/nrf52dk.py --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+            python3 hwci/core/main.py --board boards/nrf52dk.py --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
           fi
 
           set +o pipefail
