@@ -297,8 +297,10 @@ jobs:
         run: |
           # MODIFY BEFORE merge vvvvv
           cd ./hwci
+          ls
           source ./.venv/bin/activate
           cd ..
+          ls
 
           STEP_FAIL=0
 
