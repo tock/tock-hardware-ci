@@ -1,7 +1,6 @@
 # Licensed under the Apache License, Version 2.0 or the MIT License.
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 # Copyright Tock Contributors 2024.
-
 # This workflow contains all Treadmill-based hardware CI jobs.
 #
 # Treadmill is a distributed hardware testbed developed within the Tock OS
@@ -17,12 +16,9 @@
 # [2]: https://github.com/treadmill-tb/treadmill
 # [3]: https://book.treadmill.ci/user-guide/github-actions-integration.html
 #
-
 name: treadmill-ci
-
 env:
   TERM: xterm # Makes tput work in actions output
-
 on:
   workflow_call:
     inputs:
@@ -58,23 +54,17 @@ on:
         required: false
         type: string
         default: ''
-
 jobs:
   test-prepare:
     runs-on: ubuntu-latest
-
     # Do not run job on forks, as they will not have the correct environment set up
     if: github.repository == inputs.repository-filter
-
     environment: ${{ inputs.job-environment }}
-
     outputs:
       tml-job-ids: ${{ steps.treadmill-job-launch.outputs.tml-job-ids }}
       tml-jobs: ${{ steps.treadmill-job-launch.outputs.tml-jobs }}
-
     steps:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-
       - name: Checkout Treadmill repository
         uses: actions/checkout@v4
         with:
@@ -82,51 +72,43 @@ jobs:
           # treadmill-tb/treadmill main as of Oct 1, 2024, 3:05 PM EDT
           ref: 'c82f4d7ebddd17f8275ba52139e64e04623f30cb'
           path: treadmill
-
       - name: Cache Treadmill CLI compilation artifacts
         id: cache-tml-cli
         uses: actions/cache@v4
         with:
           path: treadmill/target
           key: ${{ runner.os }}-tml-cli
-
       - name: Compile the Treadmill CLI binary
         run: |
           pushd treadmill
           cargo build --package tml-cli
           popd
           echo "$PWD/treadmill/target/debug" >> "$GITHUB_PATH"
-
       - name: Generate a token to register new just-in-time runners
         id: generate-token
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ vars.TREADMILL_GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.TREADMILL_GH_APP_PRIVATE_KEY }}
-
       - name: Create GitHub just-in-time runners and enqueue Treadmill jobs
         id: treadmill-job-launch
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           TML_API_TOKEN: ${{ secrets.TREADMILL_API_TOKEN }}
-
           # Currently, all tests run only on hosts attached to an nRF52840DK
           DUT_BOARD: nrf52840dk
-
           # A Raspberry Pi OS netboot (NBD) image with a GitHub Actions
           # self-hosted runner pre-configured.
           #
           # For the available images see
           # https://book.treadmill.ci/treadmillci-deployment/images.html
           IMAGE_ID: f94b8f8edd54321e6370d898f87ccbd2659a67ed0300fda2adc8099cdd157790
-
           # Limit the supervisors to hosts that are compatible with this
           # image. This is a hack until we introduce "image sets" which define
           # multiple images for various supervisor hosts, but otherwise behave
           # identically:
           HOST_TYPE: nbd-netboot
           HOST_ARCH: arm64
-
           TESTS_JSON: ${{ inputs.tests-json }}
           # Support for specific supervisor targeting for multi-board tests
           MULTI_BOARD: ${{ inputs.multi-board }}
@@ -168,7 +150,7 @@ jobs:
           }"
 
           echo "Enqueueing treadmill job:"
-          
+
           # If this is a multi-board test targeting a specific supervisor
           if [ "$MULTI_BOARD" = "true" ] && [ -n "$SUPERVISOR_ID" ]; then
             TML_JOB_ID_JSON="$(tml job enqueue \
@@ -212,7 +194,6 @@ jobs:
             fi
             echo "| \`$TEST\` | \`$BOARD_INFO\` | [\`$TML_JOB_ID\`](#tml-job-summary-$TML_JOB_ID) |" >>"$GITHUB_STEP_SUMMARY"
           done
-
   test-execute:
     needs: test-prepare
     strategy:
@@ -238,16 +219,13 @@ jobs:
           ls -lh /dev/ttyACM* 2>/dev/null || true
           ls -lh /dev/ttyUSB* 2>/dev/null || true
           ls -lh /dev/bus/usb/*/* 2>/dev/null || true
-
       - name: Disable wget progress output
         run: |
           echo "verbose = off" >> $HOME/.wgetrc
-
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           # Avoid overwriting the RUSTFLAGS environment variable
           rustflags: ''
-
       # This is required for the actions/checkout steps to perform a
       # proper git clone that also supports checking out submodules:
       - name: Install git
@@ -259,20 +237,17 @@ jobs:
           # part out.
           sudo DEBIAN_FRONTEND=noninteractive apt update || true
           sudo DEBIAN_FRONTEND=noninteractive apt install -y git
-
       - name: Checkout the Tock Hardware CI scripts
         uses: actions/checkout@v4
         with:
           repository: tock/tock-hardware-ci
           ref: ${{ inputs.tock-hardware-ci-ref }}
-
       - name: Checkout the Tock kernel repository
         uses: actions/checkout@v4
         with:
           path: hwci/repos/tock
           repository: tock/tock
           ref: ${{ inputs.tock-kernel-ref }}
-
       - name: Checkout the libtock-c repository
         uses: actions/checkout@v4
         with:
@@ -282,12 +257,10 @@ jobs:
           fetch-depth: 0
           submodules: false
           persist-credentials: true
-
       - name: Run setup script
         run: |
           cd ./hwci/
           ./setup.sh
-
       - name: Run tests
         env:
           JSON_TEST_ARRAY: ${{ toJSON(fromJSON(needs.test-prepare.outputs.tml-jobs)[matrix.tml-job-id].tests) }}
@@ -340,6 +313,9 @@ jobs:
               BOARD_DESC_ARGS+=" --board-descriptors $DESC"
             done
 
+            echo 'python3 hwci/core/main.py $BOARD_DESC_ARGS --test "$TEST"'
+            pwd
+
             # Run test with multiple board descriptors
             python3 hwci/core/main.py $BOARD_DESC_ARGS --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
 
@@ -382,11 +358,9 @@ jobs:
             echo "At least one test failed, exiting with error."
             exit 1
           fi
-
       - name: Request shutdown after successful job completion
         run: |
           sudo touch /run/github-actions-shutdown
-
       - name: Provide connection information on job failure
         if: failure()
         run: |
