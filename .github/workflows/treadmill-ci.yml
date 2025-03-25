@@ -273,7 +273,11 @@ jobs:
           ls
           source ./.venv/bin/activate
           cd ..
-          ls
+
+          git clone https://github.com/treadmill-tb/tockloader.git
+          cd tockloader
+          pip install -e .
+          cd ..
 
           STEP_FAIL=0
 
@@ -310,7 +314,7 @@ jobs:
             echo "Running multi-board test with specified board descriptors"
             BOARD_DESC_ARGS=""
             for DESC in $BOARD_DESCRIPTORS; do
-              BOARD_DESC_ARGS+=" --board-descriptors $DESC"
+              BOARD_DESC_ARGS+=" --board-descriptors ../$DESC"
             done
 
             echo "python3 hwci/core/main.py $BOARD_DESC_ARGS --test \"$TEST\""
