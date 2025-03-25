@@ -279,6 +279,8 @@ jobs:
           pip install -e .
           cd ..
 
+          cd ./hwci
+
           STEP_FAIL=0
 
           # Generate a summary of all the tests executed:
@@ -321,7 +323,7 @@ jobs:
             pwd
 
             # Run test with multiple board descriptors
-            python3 hwci/core/main.py $BOARD_DESC_ARGS --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+            python3 core/main.py $BOARD_DESC_ARGS --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
 
           else
             # Run standard single-board test
