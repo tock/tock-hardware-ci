@@ -279,8 +279,6 @@ jobs:
           pip install -e .
           cd ..
 
-          cd ./hwci
-
           STEP_FAIL=0
 
           # Generate a summary of all the tests executed:
@@ -316,18 +314,17 @@ jobs:
             echo "Running multi-board test with specified board descriptors"
             BOARD_DESC_ARGS=""
             for DESC in $BOARD_DESCRIPTORS; do
-              BOARD_DESC_ARGS+=" --board-descriptors ../$DESC"
+              BOARD_DESC_ARGS+=" --board-descriptors $DESC"
             done
 
-            echo "python3 hwci/core/main.py $BOARD_DESC_ARGS --test \"$TEST\""
             pwd
 
             # Run test with multiple board descriptors
-            python3 core/main.py $BOARD_DESC_ARGS --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+            python3 hwci/core/main.py $BOARD_DESC_ARGS --test "hwci/$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
 
           else
             # Run standard single-board test
-            python3 hwci/core/main.py --board boards/nrf52dk.py --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+            python3 hwci/core/main.py --board hwci/boards/nrf52dk.py --test "hwci/$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
           fi
 
           set +o pipefail
