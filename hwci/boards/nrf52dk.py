@@ -38,6 +38,7 @@ class Nrf52dk(TockloaderBoard):
     def get_uart_port(self):
         logging.info("Getting list of serial ports")
         ports = list(serial.tools.list_ports.comports())
+        print(ports)
 
         # First, check if we have a serial_number to match
         board_serial = getattr(self, "serial_number", None)
@@ -70,6 +71,7 @@ class Nrf52dk(TockloaderBoard):
         # If no serial number is provided or we couldn't find a match,
         # just return the first J-Link port for now (this will be replaced later)
         jlink_ports = [p for p in ports if "J-Link" in p.description]
+
         if jlink_ports:
             selected_port = jlink_ports[0].device
             logging.info(

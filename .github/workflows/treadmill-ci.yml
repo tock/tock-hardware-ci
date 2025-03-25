@@ -313,7 +313,7 @@ jobs:
               BOARD_DESC_ARGS+=" --board-descriptors $DESC"
             done
 
-            echo 'python3 hwci/core/main.py $BOARD_DESC_ARGS --test "$TEST"'
+            echo "python3 hwci/core/main.py $BOARD_DESC_ARGS --test \"$TEST\""
             pwd
 
             # Run test with multiple board descriptors
