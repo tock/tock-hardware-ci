@@ -318,6 +318,10 @@ jobs:
             done
 
             pwd
+            python3 hwci/core/main.py \
+
+
+            echo "python3 hwci/core/main.py $BOARD_DESC_ARGS --test hwci/$TEST 2>&1 | tee ./job-output.txt || FAIL=1"
 
             # Run test with multiple board descriptors
             python3 hwci/core/main.py $BOARD_DESC_ARGS --test "hwci/$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
