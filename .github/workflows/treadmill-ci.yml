@@ -312,9 +312,9 @@ jobs:
           # Check if this is a multi-board test with specific board descriptors
           if [ "$MULTI_BOARD" = "true" ] && [ -n "$BOARD_DESCRIPTORS" ]; then
             echo "Running multi-board test with specified board descriptors"
-            BOARD_DESC_ARGS=""
+            BOARD_DESC_ARGS="--board-descriptors"
             for DESC in $BOARD_DESCRIPTORS; do
-              BOARD_DESC_ARGS+=" --board-descriptors $DESC"
+              BOARD_DESC_ARGS+=" $DESC"
             done
 
             pwd
