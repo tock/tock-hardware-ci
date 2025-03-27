@@ -44,14 +44,22 @@ def main():
         )
         sys.exit(1)
 
+    logging.info(f"Loading {len(args.board_descriptors)} board descriptors")
+    logging.info(f"Loading test module: {args.test}")
+    logging.info(f"Python path: {sys.path}")
+    logging.info(f"Board descriptors: {args.board_descriptors}")
+
     for descriptor_path in args.board_descriptors:
         logging.info(f"Loading board descriptor: {descriptor_path}")
         with open(descriptor_path, "r") as f:
-            board_info = yaml.safe_load(f)
+            yaml_content = f.read()
+            # Log the raw YAML content
+            logging.info(f"YAML content:\n{yaml_content}")
+            # Parse the YAML
+            board_info = yaml.safe_load(yaml_content)
+        
         if not board_info:
-            logging.error(
-                f"Board descriptor file {descriptor_path} is empty or invalid."
-            )
+            logging.error(f"Board descriptor file {descriptor_path} is empty or invalid.")
             sys.exit(1)
 
         # We expect something like: board_module: boards/nrf52dk.py
