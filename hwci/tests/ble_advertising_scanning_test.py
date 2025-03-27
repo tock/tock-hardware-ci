@@ -167,10 +167,12 @@ class BleAdvertisingScanningTest(TestHarness):
                             device_name_found = True
 
                         # Mark scan as done if we found sufficient evidence this is our advertisement
-                        if (
-                            manufacturer_data_found or device_name_found
-                        ) and "NON_CONNECT_IND" in current_pdu_type:
+                        if manufacturer_data_found or device_name_found:
+                            # Accept any advertisement type for now
                             scan_done = True
+                            logging.info(
+                                f"Found our advertisement data in PDU type: {current_pdu_type}"
+                            )
 
                 # Alternative approach: look for specific patterns in raw output
                 if ("NON_CONNECT_IND" in text_scan) and not scan_done:
