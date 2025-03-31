@@ -2,6 +2,7 @@
 
 import logging
 import time
+import re
 from core.test_harness import TestHarness
 
 
@@ -10,9 +11,30 @@ class BleAdvertisingScanningTest(TestHarness):
     Multi-board test:
     - Board 0: ble_advertising
     - Board 1: ble_passive_scanning
+
     We confirm that the advertiser prints "Now advertising..."
-    and that the scanner detects our specific advertisement data.
+    and that the scanner detects the specific advertisement from our advertiser.
+
+    The test validates:
+    1. The advertiser successfully advertises with the expected device name
+    2. The scanner detects the advertiser's specific advertisement
+    3. The advertisement contains the expected data payload
     """
+
+    # Configuration constants for test validation
+    EXPECTED_DEVICE_NAME = "TockOS"
+    EXPECTED_PDU_TYPE = "NON_CONNECT_IND"
+    EXPECTED_MANUFACTURER_DATA = (
+        "13 37"  # From the advertiser's manufacturer_data[] = {0x13, 0x37}
+    )
+
+    # Pattern to extract BLE address from log output
+    ADDR_PATTERN = r"Address: ([0-9a-fA-F]{2} [0-9a-fA-F]{2} [0-9a-fA-F]{2} [0-9a-fA-F]{2} [0-9a-fA-F]{2} [0-9a-fA-F]{2})"
+
+    # Pattern to extract device name from advertisement data
+    DEVICE_NAME_PATTERN = (
+        r"TockOS"  # Simplified pattern - could be enhanced to extract from actual data
+    )
 
     def test(self, boards):
         if len(boards) < 2:
@@ -50,8 +72,6 @@ class BleAdvertisingScanningTest(TestHarness):
         scanner.flash_kernel()
 
         # Flash user apps:
-        #   "ble_advertising" is the path to your ble_advertising directory in libtock-c
-        #   "ble_passive_scanning" is the path to your ble_passive_scanning directory
         advertiser.flash_app("ble_advertising")
         scanner.flash_app("ble_passive_scanning")
 
@@ -64,19 +84,11 @@ class BleAdvertisingScanningTest(TestHarness):
         # We'll store flags once we've seen the key lines.
 
         adv_done = False  # Did we see the "Now advertising every..."
-        scan_done = False  # Did we see scanner detect our specific advertisement?
+        scan_done = False  # Did we see scanner output for our specific advertisement?
 
-        # Keep track of specific advertisement patterns we're looking for
-        manufacturer_data_found = False  # 0x13, 0x37
-        device_name_found = False  # "TockOS"
-
-        # To track PDU type for the current advertisement being processed
-        current_pdu_type = None
-
-        # For tracking multi-line advertisement data
-        processing_adv_data = False
-        current_address = None
-        current_data = None
+        # To store information for validation and error reporting
+        advertiser_addr = None  # Will store the advertiser's BLE address if found
+        received_advertisements = []  # Will store all advertisements found by scanner
 
         start_time = time.time()
         TIMEOUT = 30  # total seconds to wait
@@ -92,10 +104,16 @@ class BleAdvertisingScanningTest(TestHarness):
             if line_adv:
                 text_adv = line_adv.decode("utf-8", errors="replace").strip()
                 logging.debug(f"[Advertiser] {text_adv}")
-                if "[Tutorial] BLE Advertising" in text_adv:
-                    adv_tutorial_line = True
-                if "Now advertising every" in text_adv:
+
+                # Detect when advertising starts
+                if (
+                    "Now advertising every" in text_adv
+                    and self.EXPECTED_DEVICE_NAME in text_adv
+                ):
                     adv_done = True
+                    logging.info(
+                        f"Advertiser started advertising as '{self.EXPECTED_DEVICE_NAME}'"
+                    )
 
             # Read from scanner's console if any new line is present
             line_scan = scanner.serial.expect(".+\r?\n", timeout=1, timeout_error=False)
@@ -103,111 +121,58 @@ class BleAdvertisingScanningTest(TestHarness):
                 text_scan = line_scan.decode("utf-8", errors="replace").strip()
                 logging.debug(f"[Scanner] {text_scan}")
 
-                # Track beginning and end of advertisement list
-                if (
-                    "--------------------------LIST-------------------------"
-                    in text_scan
-                ):
-                    processing_adv_data = True
-                    continue
+                # Store any discovered advertisement for later analysis
+                if self.EXPECTED_PDU_TYPE in text_scan:
+                    received_advertisements.append(text_scan)
 
-                if (
-                    "--------------------------END---------------------------"
-                    in text_scan
-                ):
-                    processing_adv_data = False
-                    continue
+                    # See if this advertisement has our expected characteristics
+                    adv_matches = (
+                        # Check for the expected PDU type
+                        self.EXPECTED_PDU_TYPE in text_scan
+                        and
+                        # Check for the manufacturer data
+                        self.EXPECTED_MANUFACTURER_DATA in text_scan
+                    )
 
-                if not processing_adv_data:
-                    # Skip lines outside of an advertisement list
-                    if "[Tutorial] BLE Passive Scanner" in text_scan:
-                        scan_tutorial_line = True
-                    continue
-
-                # Process advertisement data
-                if "PDU Type:" in text_scan:
-                    # Start of a new advertisement
-                    current_pdu_type = text_scan.split("PDU Type:")[1].strip()
-                    # Reset tracking for this advertisement
-                    current_address = None
-                    current_data = None
-
-                elif "Address:" in text_scan:
-                    current_address = text_scan.split("Address:")[1].strip()
-
-                elif "Data:" in text_scan:
-                    current_data = text_scan.split("Data:")[1].strip()
-
-                    # If we have a complete advertisement entry, check it
-                    if current_pdu_type and current_data:
-                        # Reset for next advertisement entry
-                        logging.debug(
-                            f"Checking advertisement - Type: {current_pdu_type}, Data: {current_data}"
-                        )
-
-                        # Look for specific data patterns from our advertiser
-
-                        # Manufacturer data: 0x13, 0x37
-                        # It appears in the data as "ff" (manufacturer data type) followed by "13 37"
-                        if "ff" in current_data and "13 37" in current_data:
-                            logging.info(
-                                "Found manufacturer data (13 37) in advertisement!"
-                            )
-                            manufacturer_data_found = True
-
-                        # Device name: "TockOS"
-                        # It should appear after the device name type code "09"
-                        # ASCII for "TockOS" is: 54 6f 63 6b 4f 53
-                        # But the data may be shortened, so look for parts of it
-                        if "09" in current_data and any(
-                            name_part in current_data
-                            for name_part in ["54 6f 63 6b", "54 6f 63", "54 6f"]
-                        ):
-                            logging.info("Found device name (TockOS) in advertisement!")
-                            device_name_found = True
-
-                        # Mark scan as done if we found sufficient evidence this is our advertisement
-                        if manufacturer_data_found or device_name_found:
-                            # Accept any advertisement type for now
-                            scan_done = True
-                            logging.info(
-                                f"Found our advertisement data in PDU type: {current_pdu_type}"
-                            )
-
-                # Alternative approach: look for specific patterns in raw output
-                if ("NON_CONNECT_IND" in text_scan) and not scan_done:
-                    logging.info("Found NON_CONNECT_IND advertisement, will check data")
+                    if adv_matches:
+                        logging.info("Scanner detected our expected advertisement")
+                        scan_done = True
 
             if adv_done and scan_done:
                 # We have everything we need
                 break
 
-        # Check if both boards printed the expected lines
+        # Generate detailed error messages if needed
+        error_messages = []
+
         if not adv_done:
-            raise Exception(
-                "Advertiser board never printed \"Now advertising every ... ms as 'TockOS'\"!"
+            error_messages.append(
+                f"Advertiser board never printed \"Now advertising every ... ms as '{self.EXPECTED_DEVICE_NAME}'\"!"
             )
 
-        # Provide a more specific error if we didn't find our advertisement
         if not scan_done:
-            error_msg = "Scanner did not detect our specific advertisement data!"
-            if manufacturer_data_found:
-                error_msg += (
-                    " (Found manufacturer data but not in NON_CONNECT_IND type)"
-                )
-            elif device_name_found:
-                error_msg += " (Found device name but not in NON_CONNECT_IND type)"
+            # Build a more detailed error message
+            error_detail = (
+                f"Scanner board never detected the expected advertisement.\n"
+                f"Expected: PDU Type: {self.EXPECTED_PDU_TYPE}, "
+                f"Manufacturer data: {self.EXPECTED_MANUFACTURER_DATA}\n"
+            )
+
+            if received_advertisements:
+                error_detail += "\nReceived advertisements:\n"
+                for i, adv in enumerate(received_advertisements, 1):
+                    # Extract and display just the relevant parts of the advertisement
+                    error_detail += f"- Adv #{i}: {adv[:200]}...\n"
             else:
-                error_msg += " No identifying patterns found in any advertisements."
-            raise Exception(error_msg)
+                error_detail += "No advertisements were detected by the scanner!"
+
+            error_messages.append(error_detail)
+
+        # Raise an exception with all error details if there were any failures
+        if error_messages:
+            raise Exception("\n".join(error_messages))
 
         logging.info("BLE advertising + scanning test passed successfully!")
-        if manufacturer_data_found:
-            logging.info(
-                "✓ Verified advertisement contained correct manufacturer data (13 37)"
-            )
-        if device_name_found:
-            logging.info("✓ Verified advertisement contained device name (TockOS)")
 
 
 test = BleAdvertisingScanningTest()
