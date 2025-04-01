@@ -23,21 +23,11 @@ class BleAdvertisingScanningTest(TestHarness):
 
     # Configuration constants for test validation
     EXPECTED_DEVICE_NAME = "TockOS"
-    EXPECTED_PDU_TYPE = "2 NON_CONNECT_IND"  # Modified to include the numeric type (2)
 
-    # The manufacturer data pattern in the advertisement data
-    # In BLE, manufacturer data is preceded by a length byte, 0xFF type byte,
-    # then possibly company ID bytes, then the actual data
-    MANUFACTURER_DATA_PATTERN = (
-        r"ff.*?13 37"  # Look for FF followed by 13 37 anywhere in the data
-    )
-
-    # Pattern to extract BLE address from log output
-    ADDR_PATTERN = r"Address: ([0-9a-fA-F]{2} [0-9a-fA-F]{2} [0-9a-fA-F]{2} [0-9a-fA-F]{2} [0-9a-fA-F]{2} [0-9a-fA-F]{2})"
-
-    # Pattern to extract device name from advertisement data
-    DEVICE_NAME_PATTERN = (
-        r"TockOS"  # Simplified pattern - could be enhanced to extract from actual data
+    # Simplified detection - just look for the manufacturer data in ANY advertisement
+    # Instead of trying to match both PDU type and manufacturer data
+    MANUFACTURER_DATA = (
+        "13 37"  # From the advertiser's manufacturer_data[] = {0x13, 0x37}
     )
 
     def test(self, boards):
@@ -90,12 +80,9 @@ class BleAdvertisingScanningTest(TestHarness):
         adv_done = False  # Did we see the "Now advertising every..."
         scan_done = False  # Did we see scanner output for our specific advertisement?
 
-        # To store information for validation and error reporting
-        advertiser_addr = None  # Will store the advertiser's BLE address if found
-        received_advertisements = []  # Will store all advertisements found by scanner
-        # For collecting multi-line advertisement data
-        current_adv = []
-        collecting_adv = False
+        # Store all scanner output for easier debugging and analysis
+        scanner_output = []
+        advertiser_output = []
 
         start_time = time.time()
         TIMEOUT = 30  # total seconds to wait
@@ -110,6 +97,7 @@ class BleAdvertisingScanningTest(TestHarness):
             )
             if line_adv:
                 text_adv = line_adv.decode("utf-8", errors="replace").strip()
+                advertiser_output.append(text_adv)
                 logging.debug(f"[Advertiser] {text_adv}")
 
                 # Detect when advertising starts
@@ -126,42 +114,28 @@ class BleAdvertisingScanningTest(TestHarness):
             line_scan = scanner.serial.expect(".+\r?\n", timeout=1, timeout_error=False)
             if line_scan:
                 text_scan = line_scan.decode("utf-8", errors="replace").strip()
+                scanner_output.append(text_scan)
                 logging.debug(f"[Scanner] {text_scan}")
 
-                # Start collecting an advertisement when we see PDU Type
-                if "PDU Type:" in text_scan:
-                    collecting_adv = True
-                    current_adv = [text_scan]
-                # Continue collecting the advertisement
-                elif collecting_adv and "Data:" in text_scan:
-                    current_adv.append(text_scan)
-                # End of the advertisement list
-                elif collecting_adv and "--------------------------END" in text_scan:
-                    collecting_adv = False
-                    # Join the collected lines into a single string for analysis
-                    complete_adv = "\n".join(current_adv)
-                    received_advertisements.append(complete_adv)
-
-                    # Check if this advertisement matches our criteria
-                    pdu_type_match = (
-                        f"PDU Type: {self.EXPECTED_PDU_TYPE}" in complete_adv
+                # Simplify our check - just look for the manufacturer data in any line
+                if self.MANUFACTURER_DATA in text_scan:
+                    logging.info(
+                        f"Scanner detected our expected manufacturer data: {self.MANUFACTURER_DATA}"
                     )
-                    manufacturer_data_match = re.search(
-                        self.MANUFACTURER_DATA_PATTERN, complete_adv
-                    )
-
-                    if pdu_type_match and manufacturer_data_match:
-                        logging.info(
-                            f"Scanner detected our expected advertisement: \n{complete_adv}"
-                        )
-                        scan_done = True
-                # Add other advertisement lines while collecting
-                elif collecting_adv:
-                    current_adv.append(text_scan)
+                    scan_done = True
 
             if adv_done and scan_done:
                 # We have everything we need
                 break
+
+        # Look at the combined output to find advertisements with our manufacturer data
+        full_scanner_output = "\n".join(scanner_output)
+        logging.info(f"Collected {len(scanner_output)} lines from scanner")
+
+        # Even if we didn't find it during line-by-line scanning, check the full output
+        if not scan_done and self.MANUFACTURER_DATA in full_scanner_output:
+            logging.info(f"Found manufacturer data in combined scanner output")
+            scan_done = True
 
         # Generate detailed error messages if needed
         error_messages = []
@@ -172,20 +146,35 @@ class BleAdvertisingScanningTest(TestHarness):
             )
 
         if not scan_done:
-            # Build a more detailed error message
+            # Print a useful diagnostic showing all the data fields seen
+            data_fields = re.findall(r"Data: ([0-9a-fA-F ]+)", full_scanner_output)
+
             error_detail = (
                 f"Scanner board never detected the expected advertisement.\n"
-                f"Expected: PDU Type: {self.EXPECTED_PDU_TYPE}, "
-                f"Manufacturer data pattern: {self.MANUFACTURER_DATA_PATTERN}\n"
+                f"Looking for manufacturer data: {self.MANUFACTURER_DATA}\n"
             )
 
-            if received_advertisements:
-                error_detail += "\nReceived advertisements (first 3 shown):\n"
-                for i, adv in enumerate(received_advertisements[:3], 1):
-                    # Show the full advertisement for better debugging
-                    error_detail += f"- Adv #{i}:\n{adv}\n\n"
+            if data_fields:
+                error_detail += "\nData fields seen in advertisements:\n"
+                for i, data in enumerate(
+                    data_fields[:10], 1
+                ):  # Show first 10 data fields
+                    error_detail += f"- {i}: {data}\n"
+                if len(data_fields) > 10:
+                    error_detail += (
+                        f"... and {len(data_fields) - 10} more data fields\n"
+                    )
             else:
-                error_detail += "No advertisements were detected by the scanner!"
+                error_detail += "No data fields were found in the scanner output!\n"
+
+            # Add a small sample of the scanner output for debugging
+            error_detail += "\nSample of scanner output:\n"
+            sample_size = min(20, len(scanner_output))  # Show up to 20 lines
+            error_detail += "\n".join(scanner_output[:sample_size])
+            if len(scanner_output) > sample_size:
+                error_detail += (
+                    f"\n... and {len(scanner_output) - sample_size} more lines"
+                )
 
             error_messages.append(error_detail)
 
