@@ -75,7 +75,7 @@ class OpenThreadHelloTest(TestHarness):
         client_board.erase_board()
         client_board.serial.flush_buffer()
         client_board.flash_kernel()
-        client_board.flash_app("openthread_hello")
+        client_board.flash_app("openthread/openthread_hello")
 
         # Reset the client board to start the test
         client_board.reset()

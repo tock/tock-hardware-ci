@@ -51,7 +51,7 @@ class RadioRxTest(TestHarness):
         tx_board.erase_board()
         tx_board.serial.flush_buffer()
         tx_board.flash_kernel()
-        tx_board.flash_app("radio_tx")
+        tx_board.flash_app("tests/ieee802154/radio_tx")
 
         logging.info(
             f"Preparing RX board (SN: {getattr(rx_board, 'serial_number', 'unknown')})"
@@ -59,7 +59,7 @@ class RadioRxTest(TestHarness):
         rx_board.erase_board()
         rx_board.serial.flush_buffer()
         rx_board.flash_kernel()
-        rx_board.flash_app("radio_rx")
+        rx_board.flash_app("tests/ieee802154/radio_rx")
 
         # Reset both boards to start the test
         tx_board.reset()
