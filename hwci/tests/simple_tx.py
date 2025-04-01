@@ -42,7 +42,7 @@ class RadioTxTest(TestHarness):
 
         # Flash the radio_tx app
         logging.info("Flashing radio_tx application")
-        board.flash_app("radio_tx")
+        board.flash_app("tests/ieee802154/radio_tx")
 
         # Reset the board to start the test
         board.reset()
