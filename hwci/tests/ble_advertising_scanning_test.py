@@ -24,11 +24,8 @@ class BleAdvertisingScanningTest(TestHarness):
     # Configuration constants for test validation
     EXPECTED_DEVICE_NAME = "TockOS"
 
-    # Simplified detection - just look for the manufacturer data in ANY advertisement
-    # Instead of trying to match both PDU type and manufacturer data
-    MANUFACTURER_DATA = (
-        "13 37"  # From the advertiser's manufacturer_data[] = {0x13, 0x37}
-    )
+    # Regular‑expression version so we’re resilient to variable whitespace
+    MANUFACTURER_DATA_RE = re.compile(r"\b13\s+37\b", re.IGNORECASE)
 
     def test(self, boards):
         if len(boards) < 2:
@@ -77,7 +74,8 @@ class BleAdvertisingScanningTest(TestHarness):
         # Because both boards may print interleaved, we'll poll each board's serial.
         # We'll store flags once we've seen the key lines.
 
-        adv_done = False  # Did we see the "Now advertising every..."
+        adv_done = False  # Did we see the advertiser start advertising?
+
         scan_done = False  # Did we see scanner output for our specific advertisement?
 
         # Store all scanner output for easier debugging and analysis
@@ -100,11 +98,15 @@ class BleAdvertisingScanningTest(TestHarness):
                 advertiser_output.append(text_adv)
                 logging.debug(f"[Advertiser] {text_adv}")
 
-                # Detect when advertising starts
-                if (
-                    "Now advertising every" in text_adv
-                    and self.EXPECTED_DEVICE_NAME in text_adv
+                # Detect when the advertiser starts.  Depending on libtock‑rs
+                # version we may get either of the lines below; a single regex
+                # covers both and survives harmless wording tweaks.
+                if re.search(
+                    rf"(Now advertising .*'{self.EXPECTED_DEVICE_NAME}'|"
+                    rf"Begin advertising!? *{self.EXPECTED_DEVICE_NAME})",
+                    text_adv,
                 ):
+
                     adv_done = True
                     logging.info(
                         f"Advertiser started advertising as '{self.EXPECTED_DEVICE_NAME}'"
@@ -117,8 +119,8 @@ class BleAdvertisingScanningTest(TestHarness):
                 scanner_output.append(text_scan)
                 logging.debug(f"[Scanner] {text_scan}")
 
-                # Simplify our check - just look for the manufacturer data in any line
-                if self.MANUFACTURER_DATA in text_scan:
+                # Look for “13 37” with flexible spacing
+                if self.MANUFACTURER_DATA_RE.search(text_scan):
                     logging.info(
                         f"Scanner detected our expected manufacturer data: {self.MANUFACTURER_DATA}"
                     )
@@ -133,7 +135,8 @@ class BleAdvertisingScanningTest(TestHarness):
         logging.info(f"Collected {len(scanner_output)} lines from scanner")
 
         # Even if we didn't find it during line-by-line scanning, check the full output
-        if not scan_done and self.MANUFACTURER_DATA in full_scanner_output:
+        if not scan_done and self.MANUFACTURER_DATA_RE.search(full_scanner_output):
+
             logging.info(f"Found manufacturer data in combined scanner output")
             scan_done = True
 
