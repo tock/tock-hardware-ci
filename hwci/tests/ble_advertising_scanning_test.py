@@ -24,8 +24,10 @@ class BleAdvertisingScanningTest(TestHarness):
     # Configuration constants for test validation
     EXPECTED_DEVICE_NAME = "TockOS"
 
-    # Regular‑expression version so we’re resilient to variable whitespace
-    MANUFACTURER_DATA_RE = re.compile(r"\b13\s+37\b", re.IGNORECASE)
+    # Manufacturer‑specific field starts with 0xFF, followed by our company ID.
+    # The ID {0x13,0x37} is little‑endian on the wire, so the scanner shows
+    # either “ff 13 37” *or* “ff 03 37”.  Accept both and ignore spacing.
+    MANUFACTURER_DATA_RE = re.compile(r"\bff\s+(?:13\s+37|03\s+37)\b", re.IGNORECASE)
 
     def test(self, boards):
         if len(boards) < 2:
