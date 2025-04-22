@@ -1,4 +1,15 @@
 # hwci/tests/ble_advertising_scanning_test.py
+#
+# Multi‑board integration test:
+#   • Board 0 runs the ble_advertising example
+#   • Board 1 runs the ble_passive_scanning example
+#
+# We verify that the advertiser prints its “start advertising” message and that
+# the scanner eventually prints at least one advertisement whose
+# manufacturer‑specific data contains our company identifier {0x13, 0x37}.
+#
+# The identifier is transmitted little‑endian on the air interface, so the
+# scanner can show either “… ff 13 37 …” or “… ff 03 37 …”.
 
 import logging
 import time
@@ -8,25 +19,18 @@ from core.test_harness import TestHarness
 
 class BleAdvertisingScanningTest(TestHarness):
     """
-    Multi-board test:
-    - Board 0: ble_advertising
-    - Board 1: ble_passive_scanning
-
-    We confirm that the advertiser prints "Now advertising..."
-    and that the scanner detects the specific advertisement from our advertiser.
-
-    The test validates:
-    1. The advertiser successfully advertises with the expected device name
-    2. The scanner detects the advertiser's specific advertisement
-    3. The advertisement contains the expected data payload
+    Multi‑board test:
+      1. Advertiser reports it is advertising with the expected device name.
+      2. Scanner prints at least one advertisement that contains our company ID
+         (0x13, 0x37) inside the manufacturer‑specific field.
     """
 
-    # Configuration constants for test validation
     EXPECTED_DEVICE_NAME = "TockOS"
 
-    # Manufacturer‑specific field starts with 0xFF, followed by our company ID.
-    # The ID {0x13,0x37} is little‑endian on the wire, so the scanner shows
-    # either “ff 13 37” *or* “ff 03 37”.  Accept both and ignore spacing.
+    # Human‑readable form for error messages / logging only
+    MANUFACTURER_DATA = "13 37"
+
+    # Regex that matches either byte order, with flexible whitespace and case
     MANUFACTURER_DATA_RE = re.compile(r"\bff\s+(?:13\s+37|03\s+37)\b", re.IGNORECASE)
 
     def test(self, boards):
@@ -35,10 +39,9 @@ class BleAdvertisingScanningTest(TestHarness):
                 "Need at least 2 boards for BLE advertising/scanning test!"
             )
 
-        advertiser = boards[0]
-        scanner = boards[1]
+        advertiser, scanner = boards[0], boards[1]
 
-        # Check that we're not using the same serial port for both boards
+        # Safety: ensure distinct UARTs
         if advertiser.uart_port == scanner.uart_port:
             raise ValueError(
                 f"Both boards are using the same serial port: {advertiser.uart_port}. "
@@ -47,7 +50,6 @@ class BleAdvertisingScanningTest(TestHarness):
                 f"Board 2 SN: {getattr(scanner, 'serial_number', 'unknown')}"
             )
 
-        # Log the selected ports for debugging
         logging.info(
             f"Advertiser (SN: {advertiser.serial_number}) using port: {advertiser.uart_port}"
         )
@@ -55,7 +57,7 @@ class BleAdvertisingScanningTest(TestHarness):
             f"Scanner (SN: {scanner.serial_number}) using port: {scanner.uart_port}"
         )
 
-        # Erase & reflash the kernel on both boards:
+        # Clean slate
         advertiser.erase_board()
         scanner.erase_board()
         advertiser.serial.flush_buffer()
@@ -64,7 +66,6 @@ class BleAdvertisingScanningTest(TestHarness):
         advertiser.flash_kernel()
         scanner.flash_kernel()
 
-        # Flash user apps:
         advertiser.flash_app("ble_advertising")
         scanner.flash_app("ble_passive_scanning")
 
@@ -72,26 +73,20 @@ class BleAdvertisingScanningTest(TestHarness):
             "Flashed ble_advertising -> board0, ble_passive_scanning -> board1."
         )
 
-        # We want to see certain lines from each board. We'll read them in a loop:
-        # Because both boards may print interleaved, we'll poll each board's serial.
-        # We'll store flags once we've seen the key lines.
+        adv_done = False  # advertiser start message seen
+        scan_done = False  # manufacturer data seen
 
-        adv_done = False  # Did we see the advertiser start advertising?
-
-        scan_done = False  # Did we see scanner output for our specific advertisement?
-
-        # Store all scanner output for easier debugging and analysis
-        scanner_output = []
-        advertiser_output = []
+        scanner_output: list[str] = []
+        advertiser_output: list[str] = []
 
         start_time = time.time()
-        TIMEOUT = 30  # total seconds to wait
+        TIMEOUT = 30  # seconds
 
         while True:
             if time.time() - start_time > TIMEOUT:
                 break
 
-            # Read from advertiser's console if any new line is present
+            # ---------- Advertiser ----------
             line_adv = advertiser.serial.expect(
                 ".+\r?\n", timeout=1, timeout_error=False
             )
@@ -100,94 +95,77 @@ class BleAdvertisingScanningTest(TestHarness):
                 advertiser_output.append(text_adv)
                 logging.debug(f"[Advertiser] {text_adv}")
 
-                # Detect when the advertiser starts.  Depending on libtock‑rs
-                # version we may get either of the lines below; a single regex
-                # covers both and survives harmless wording tweaks.
                 if re.search(
                     rf"(Now advertising .*'{self.EXPECTED_DEVICE_NAME}'|"
                     rf"Begin advertising!? *{self.EXPECTED_DEVICE_NAME})",
                     text_adv,
                 ):
-
                     adv_done = True
                     logging.info(
                         f"Advertiser started advertising as '{self.EXPECTED_DEVICE_NAME}'"
                     )
 
-            # Read from scanner's console if any new line is present
+            # ---------- Scanner ----------
             line_scan = scanner.serial.expect(".+\r?\n", timeout=1, timeout_error=False)
             if line_scan:
                 text_scan = line_scan.decode("utf-8", errors="replace").strip()
                 scanner_output.append(text_scan)
                 logging.debug(f"[Scanner] {text_scan}")
 
-                # Look for “13 37” with flexible spacing
                 if self.MANUFACTURER_DATA_RE.search(text_scan):
                     logging.info(
-                        f"Scanner detected our expected manufacturer data: {self.MANUFACTURER_DATA}"
+                        f"Scanner detected our expected manufacturer data ({self.MANUFACTURER_DATA})"
                     )
                     scan_done = True
 
             if adv_done and scan_done:
-                # We have everything we need
                 break
 
-        # Look at the combined output to find advertisements with our manufacturer data
-        full_scanner_output = "\n".join(scanner_output)
+        # Final pass over accumulated output
+        full_scan_out = "\n".join(scanner_output)
         logging.info(f"Collected {len(scanner_output)} lines from scanner")
 
-        # Even if we didn't find it during line-by-line scanning, check the full output
-        if not scan_done and self.MANUFACTURER_DATA_RE.search(full_scanner_output):
-
-            logging.info(f"Found manufacturer data in combined scanner output")
+        if not scan_done and self.MANUFACTURER_DATA_RE.search(full_scan_out):
+            logging.info("Found manufacturer data in combined scanner output")
             scan_done = True
 
-        # Generate detailed error messages if needed
-        error_messages = []
+        # Assemble error report if needed
+        errors = []
 
         if not adv_done:
-            error_messages.append(
-                f"Advertiser board never printed \"Now advertising every ... ms as '{self.EXPECTED_DEVICE_NAME}'\"!"
+            errors.append(
+                f"Advertiser never printed its start‑advertising line containing "
+                f"'{self.EXPECTED_DEVICE_NAME}'."
             )
 
         if not scan_done:
-            # Print a useful diagnostic showing all the data fields seen
-            data_fields = re.findall(r"Data: ([0-9a-fA-F ]+)", full_scanner_output)
+            data_fields = re.findall(r"Data:\s*([0-9a-fA-F ]+)", full_scan_out)
 
-            error_detail = (
-                f"Scanner board never detected the expected advertisement.\n"
-                f"Looking for manufacturer data: {self.MANUFACTURER_DATA}\n"
+            err = (
+                "Scanner board never detected an advertisement with the expected "
+                f"manufacturer data ({self.MANUFACTURER_DATA}).\n"
             )
-
             if data_fields:
-                error_detail += "\nData fields seen in advertisements:\n"
-                for i, data in enumerate(
-                    data_fields[:10], 1
-                ):  # Show first 10 data fields
-                    error_detail += f"- {i}: {data}\n"
+                err += "\nData fields seen in advertisements:\n"
+                for i, data in enumerate(data_fields[:10], 1):
+                    err += f"  {i:2d}: {data}\n"
                 if len(data_fields) > 10:
-                    error_detail += (
-                        f"... and {len(data_fields) - 10} more data fields\n"
-                    )
+                    err += f"  … and {len(data_fields) - 10} more\n"
             else:
-                error_detail += "No data fields were found in the scanner output!\n"
+                err += "No advertisement ‘Data: …’ lines were captured!\n"
 
-            # Add a small sample of the scanner output for debugging
-            error_detail += "\nSample of scanner output:\n"
-            sample_size = min(20, len(scanner_output))  # Show up to 20 lines
-            error_detail += "\n".join(scanner_output[:sample_size])
-            if len(scanner_output) > sample_size:
-                error_detail += (
-                    f"\n... and {len(scanner_output) - sample_size} more lines"
-                )
+            sample = "\n".join(scanner_output[:20])
+            err += "\nSample scanner output:\n" + sample
+            if len(scanner_output) > 20:
+                err += f"\n… and {len(scanner_output) - 20} more lines"
 
-            error_messages.append(error_detail)
+            errors.append(err)
 
-        # Raise an exception with all error details if there were any failures
-        if error_messages:
-            raise Exception("\n".join(error_messages))
+        if errors:
+            raise Exception("\n\n".join(errors))
 
         logging.info("BLE advertising + scanning test passed successfully!")
 
 
+# For manual invocation
 test = BleAdvertisingScanningTest()
