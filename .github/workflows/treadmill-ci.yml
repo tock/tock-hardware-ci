@@ -274,11 +274,6 @@ jobs:
           source ./.venv/bin/activate
           cd ..
 
-          git clone https://github.com/treadmill-tb/tockloader.git
-          cd tockloader
-          pip install -e .
-          cd ..
-
           STEP_FAIL=0
 
           # Generate a summary of all the tests executed:
