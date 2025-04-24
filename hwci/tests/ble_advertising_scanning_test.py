@@ -28,10 +28,13 @@ class BleAdvertisingScanningTest(TestHarness):
     EXPECTED_DEVICE_NAME = "TockOS"
 
     # Human‑readable form for error messages / logging only
-    MANUFACTURER_DATA = "13 37"
+    # MANUFACTURER_DATA = "13 37"
 
     # Regex that matches either byte order, with flexible whitespace and case
-    MANUFACTURER_DATA_RE = re.compile(r"\bff\s+(?:13\s+37|03\s+37)\b", re.IGNORECASE)
+    # MANUFACTURER_DATA_RE = re.compile(r"\bff\s+(?:13\s+37|03\s+37)\b", re.IGNORECASE)
+
+    MANUFACTURER_DATA = "06 00"
+    MANUFACTURER_DATA_RE = re.compile(r"\bff\s+06\s+00\b", re.IGNORECASE)
 
     def test(self, boards):
         if len(boards) < 2:
