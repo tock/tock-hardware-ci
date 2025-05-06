@@ -28,7 +28,7 @@ class BulkEchoTest(OneshotTest):
 
     def __init__(self):
         """Initialize the test with the usb app."""
-        super().__init__(apps=["tests/usb"])
+        super().__init__(apps=["tests/usb_bulk_echo"])
 
         # USB device identifiers (same as in the Rust code)
         self.VENDOR_ID = 0x6667
