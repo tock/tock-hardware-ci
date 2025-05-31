@@ -16,6 +16,8 @@ class TockloaderBoard(BoardHarness):
         self.board = None  # Should be set in subclass
         self.arch = None  # Should be set in subclass
         self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.program_method = "serial_bootloader"
+        self.app_sha256_credential = False
 
     def flash_app(self, app):
         if type(app) == str:
@@ -38,24 +40,38 @@ class TockloaderBoard(BoardHarness):
             logging.error(f"App directory {app_dir} not found")
             raise FileNotFoundError(f"App directory {app_dir} not found")
 
+
+        make_args = [
+            "make",
+            f"TOCK_TARGETS={self.arch}"
+        ]
+        # if self.app_sha256_credential:
+        #     make_args.append("ELF2TAB_ARGS=\"--sha256\"")
+
         # Build the app using absolute paths
         logging.info(f"Building app: {app_name}")
         if app_name != "lua-hello":
-            subprocess.run(
-                ["make", f"TOCK_TARGETS={self.arch}"], cwd=app_dir, check=True
-            )
+            subprocess.run(make_args, cwd=app_dir, check=True)
         else:
             # if the app is lua-hello, we need to build the libtock-c submodule first so we need to change directory
             # into the libtock-c directory so it knows we are in a git repostiory
             self.change_directory(libtock_c_dir)
-            subprocess.run(
-                ["make", f"TOCK_TARGETS={self.arch}"], cwd=app_dir, check=True
-            )
+            subprocess.run(make_args, cwd=app_dir, check=True)
 
         tab_path = os.path.join(app_dir, tab_file)
         if not os.path.exists(tab_path):
             logging.error(f"Tab file {tab_path} not found")
             raise FileNotFoundError(f"Tab file {tab_path} not found")
+
+        if self.program_method == "serial_bootloader":
+            program_method_arg = "--serial"
+        elif self.program_method == "jlink":
+            program_method_arg = "--jlink"
+        elif self.program_method == "openocd":
+            program_method_arg = "--openocd"
+        else:
+            raise NotImplemented(f"Unknown program method: {self.program_method}")
+
         logging.info(f"Installing app: {app_name}")
         subprocess.run(
             [
@@ -63,7 +79,7 @@ class TockloaderBoard(BoardHarness):
                 "install",
                 "--board",
                 self.board,
-                "--openocd",
+                program_method_arg,
                 tab_path,
             ],
             check=True,
