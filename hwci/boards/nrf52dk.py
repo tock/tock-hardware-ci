@@ -20,9 +20,12 @@ class Nrf52dk(TockloaderBoard):
         # Path to Tock's root directory
         self.kernel_path = os.path.join(self.base_dir, "repos", "tock")
 
+        # Default kernel configuration (can be overridden)
+        self.kernel_config = "nrf52840dk-test-usb"
+        
         # Path to the nrf52840dk board folder in Tock
         self.kernel_board_path = os.path.join(
-            self.kernel_path, "boards", "nordic", "nrf52840dk"
+            self.kernel_path, "boards", "configurations", "nrf52840dk", self.kernel_config
         )
 
         self.uart_port = self.get_uart_port()
@@ -121,6 +124,14 @@ class Nrf52dk(TockloaderBoard):
 
         target_spec = {"pin_mappings": self.pin_mappings}
         return GPIO(target_spec)
+    
+    def set_kernel_config(self, config_name):
+        """Set the kernel configuration to use (e.g., 'nrf52840dk-test-usb' or 'nrf52840dk-usb-bulk')."""
+        self.kernel_config = config_name
+        self.kernel_board_path = os.path.join(
+            self.kernel_path, "boards", "configurations", "nrf52840dk", self.kernel_config
+        )
+        logging.info(f"Set kernel configuration to: {config_name}")
 
     def cleanup(self):
         if self.gpio:
@@ -144,9 +155,9 @@ class Nrf52dk(TockloaderBoard):
             check=True,
         )
 
-        # Path to the kernel binary
+        # Path to the kernel binary (name matches the configuration)
         kernel_bin = os.path.join(
-            self.kernel_path, "target/thumbv7em-none-eabi/release/nrf52840dk.bin"
+            self.kernel_path, f"target/thumbv7em-none-eabi/release/{self.kernel_config}.bin"
         )
 
         # Get the serial number of this board
