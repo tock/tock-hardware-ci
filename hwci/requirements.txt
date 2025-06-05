@@ -8,4 +8,5 @@ tockloader
 pyyaml
 gpiozero
 lgpio
+pyusb
 tockloader
