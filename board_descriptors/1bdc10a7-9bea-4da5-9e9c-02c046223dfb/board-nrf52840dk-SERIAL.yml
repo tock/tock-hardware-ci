@@ -1,8 +1,0 @@
-model: nrf52840dk
-serial_number: '1bdc10a7-9bea-4da5-9e9c-02c046223dfb'
-board_module: hwci/boards/nrf52dk.py
-host_type: QEMU
-features:
-  ble: true
-  debugger: jlink
-  gpio: false
