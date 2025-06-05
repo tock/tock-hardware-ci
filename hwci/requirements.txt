@@ -8,3 +8,4 @@ tockloader
 pyyaml
 gpiozero
 lgpio
+tockloader
