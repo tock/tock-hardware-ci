@@ -1,0 +1,73 @@
+# Licensed under the Apache License, Version 2.0 or the MIT License.
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+# Copyright Tock Contributors 2024.
+# This workflow contains Treadmill-based hardware CI for nightly BLE testing.
+#
+# Treadmill is a distributed hardware testbed developed within the Tock OS
+# project. For more information on Treadmill, have a look at its documentation
+# [1] or repository [2].
+#
+# This workflow specifically targets BLE advertising and scanning tests on multiple
+# boards attached to a specific supervisor.
+#
+# [1]: https://book.treadmill.ci/
+# [2]: https://github.com/treadmill-tb/treadmill
+# [3]: https://book.treadmill.ci/user-guide/github-actions-integration.html
+# TEST
+name: treadmill-ci-ble-test
+env:
+  TERM: xterm # Makes tput work in actions output
+# Controls when the action will run.
+on:
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      tock-kernel-ref:
+        description: 'Ref (revision/branch/tag) of the upstream Tock repo to test'
+        required: true
+        default: 'master'
+      libtock-c-ref:
+        description: 'Ref (revision/branch/tag) of the upstream libtock-c repo to test'
+        required: true
+        default: 'master'
+  # Add push trigger for your branch
+  push:
+    branches:
+      - dev/mult-board-treadmill
+permissions:
+  contents: read
+jobs:
+  prepare-ble-test:
+    runs-on: ubuntu-latest
+    outputs:
+      # This is a fixed list containing just the BLE advertising and scanning test
+      hwci-tests-json: ${{ steps.prepare-test.outputs.hwci-tests-json }}
+    steps:
+      - name: Prepare BLE test
+        id: prepare-test
+        run: |
+          # Instead of analyzing changes, we specifically select the BLE test
+          echo 'hwci-tests-json=["tests/ble_advertising_scanning_test.py"]' >> "$GITHUB_OUTPUT"
+          echo "Selected test: tests/ble_advertising_scanning_test.py"
+  run-treadmill-ci:
+    needs: [prepare-ble-test]
+    uses: ./.github/workflows/treadmill-ci.yml
+    with:
+      # Only run on a specific repository
+      repository-filter: 'tock/tock-hardware-ci'
+      # Provide access to the required Treadmill secrets
+      job-environment: 'treadmill-ci'
+      # This workflow tests the tock-hardware-ci scripts itself, so take the
+      # current GITHUB_SHA:
+      tock-hardware-ci-ref: ${{ github.sha }}
+      # Use the provided upstream Tock kernel / userspace components:
+      tock-kernel-ref: ${{ inputs.tock-kernel-ref }}
+      libtock-c-ref: ${{ inputs.libtock-c-ref }}
+      # Pass our fixed test JSON
+      tests-json: ${{ needs.prepare-ble-test.outputs.hwci-tests-json }}
+      # Specify that this is for the BLE test which needs multiple boards
+      multi-board: 'true'
+      supervisor-id: 'fb1384d5-e1a5-469c-beb4-0d4d215c9793'
+      board-descriptors: >-
+        board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050202501.yml board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050244773.yml
+    secrets: inherit

@@ -11,7 +11,7 @@ pycryptodome==3.21.0
 pyserial==3.5
 questionary==2.0.1
 siphash==0.0.1
-tockloader==1.13.0
+tockloader==1.14.0
 toml==0.10.2
 tqdm==4.66.6
 wcwidth==0.2.13
