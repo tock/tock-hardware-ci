@@ -264,15 +264,30 @@ jobs:
       - name: Run tests
         env:
           JSON_TEST_ARRAY: ${{ toJSON(fromJSON(needs.test-prepare.outputs.tml-jobs)[matrix.tml-job-id].tests) }}
-          MULTI_BOARD: ${{ inputs.multi-board }}
-          SUPERVISOR_ID: ${{ inputs.supervisor-id }}
-          BOARD_DESCRIPTORS: ${{ inputs.board-descriptors }}
         run: |
-          # MODIFY BEFORE merge vvvvv
           cd ./hwci
           ls
           source ./.venv/bin/activate
           cd ..
+
+          # Get the host ID from Treadmill
+          HOST_ID=$(cat /run/tml/host-id)
+          echo "Host ID: $HOST_ID"
+
+          # Find board descriptors for this host
+          BOARD_DESC_DIR="hwci/board_descriptors/$HOST_ID"
+          if [ ! -d "$BOARD_DESC_DIR" ]; then
+            echo "ERROR: No board descriptors found for host $HOST_ID"
+            exit 1
+          fi
+
+          # Get all board descriptors for this host
+          BOARD_DESCRIPTORS=($(find "$BOARD_DESC_DIR" -name "*.yml" -o -name "*.yaml" | sort))
+          BOARD_COUNT=${#BOARD_DESCRIPTORS[@]}
+          echo "Found $BOARD_COUNT board descriptor(s) for host $HOST_ID:"
+          for desc in "${BOARD_DESCRIPTORS[@]}"; do
+            echo "  - $desc"
+          done
 
           STEP_FAIL=0
 
@@ -285,68 +300,56 @@ jobs:
           GITHUB_STEP_SUMMARY
 
           while read TEST; do
-          # WHILE ---------->
+            # WHILE ---------->
 
-          # For markdown links, we want a sanitized test name without special characters
-          SANITIZED_TEST_NAME="${TEST//[^[:alnum:]]/_}"
+            # For markdown links, we want a sanitized test name without special characters
+            SANITIZED_TEST_NAME="${TEST//[^[:alnum:]]/_}"
 
-          # Prepare a collapsible section in the test output:
-          cat <<STEP_SUMMARY_DETAILS >>"./step-summary-details.txt"
-          <details>
-          <summary>Test \`$TEST\`</summary>
-          ##### <a id="#test-$SANITIZED_TEST_NAME"></a> Test \`$TEST\`
+            # Prepare a collapsible section in the test output:
+            cat <<STEP_SUMMARY_DETAILS >>"./step-summary-details.txt"
+            <details>
+            <summary>Test \`$TEST\`</summary>
+            ##### <a id="#test-$SANITIZED_TEST_NAME"></a> Test \`$TEST\`
 
-          \`\`\`
-          STEP_SUMMARY_DETAILS
+            \`\`\`
+            STEP_SUMMARY_DETAILS
 
-          # Run the test script, saving its output:
-          echo "===== RUNNING TEST $TEST ====="
-          FAIL=0
-          set -o pipefail
+            # Run the test script, saving its output:
+            echo "===== RUNNING TEST $TEST ====="
+            FAIL=0
+            set -o pipefail
 
-          # Check if this is a multi-board test with specific board descriptors
-          if [ "$MULTI_BOARD" = "true" ] && [ -n "$BOARD_DESCRIPTORS" ]; then
-            echo "Running multi-board test with specified board descriptors"
+            # Build the command with --board-descriptors for all cases
             BOARD_DESC_ARGS="--board-descriptors"
-            for DESC in $BOARD_DESCRIPTORS; do
-              BOARD_DESC_ARGS+=" $DESC"
+            for desc in "${BOARD_DESCRIPTORS[@]}"; do
+              BOARD_DESC_ARGS+=" $desc"
             done
-
-            pwd
-
-            echo "python3 hwci/core/main.py $BOARD_DESC_ARGS --test hwci/$TEST 2>&1 | tee ./job-output.txt || FAIL=1"
-
-            # Run test with multiple board descriptors
+            echo "Running test with board descriptor(s): ${BOARD_DESCRIPTORS[@]}"
             python3 hwci/core/main.py $BOARD_DESC_ARGS --test "hwci/$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
 
-          else
-            # Run standard single-board test
-            python3 hwci/core/main.py --board hwci/boards/nrf52dk.py --test "hwci/$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
-          fi
+            set +o pipefail
 
-          set +o pipefail
+            # Insert the result into the markdown table:
+            if [ "$FAIL" == "0" ]; then
+              echo "| ✅ | \`$TEST\` ([Output](#test-$SANITIZED_TEST_NAME)) |" >>"$GITHUB_STEP_SUMMARY"
+            else
+              echo "===== Test $TEST failed! ====="
+              echo "| ❌ | \`$TEST\` ([Output](#test-$SANITIZED_TEST_NAME)) |" >>"$GITHUB_STEP_SUMMARY"
+              STEP_FAIL=1
+            fi
 
-          # Insert the result into the markdown table:
-          if [ "$FAIL" == "0" ]; then
-            echo "| ✅ | \`$TEST\` ([Output](#test-$SANITIZED_TEST_NAME)) |" >>"$GITHUB_STEP_SUMMARY"
-          else
-            echo "===== Test $TEST failed! ====="
-            echo "| ❌ | \`$TEST\` ([Output](#test-$SANITIZED_TEST_NAME)) |" >>"$GITHUB_STEP_SUMMARY"
-            STEP_FAIL=1
-          fi
+            # Sanitize the output (remove triple backslashes) and copy it into the step summary details:
+            cat ./job-output.txt | sed 's/```//g' >>"./step-summary-details.txt"
 
-          # Sanitize the output (remove triple backslashes) and copy it into the step summary details:
-          cat ./job-output.txt | sed 's/```//g' >>"./step-summary-details.txt"
+            # Finalize this section of the test output summary:
+            cat <<STEP_SUMMARY_DETAILS >>"./step-summary-details.txt"
+            \`\`\`
 
-          # Finalize this section of the test output summary:
-          cat <<STEP_SUMMARY_DETAILS >>"./step-summary-details.txt"
-          \`\`\`
+            </details>
 
-          </details>
+            STEP_SUMMARY_DETAILS
 
-          STEP_SUMMARY_DETAILS
-
-          # -----------> DONE
+            # -----------> DONE
           done < <(echo "$JSON_TEST_ARRAY" | jq -r -c '.[]')
 
           # Finally, add all test output sections to the overall step summary:
@@ -358,20 +361,3 @@ jobs:
             echo "At least one test failed, exiting with error."
             exit 1
           fi
-      - name: Request shutdown after successful job completion
-        run: |
-          sudo touch /run/github-actions-shutdown
-      - name: Provide connection information on job failure
-        if: failure()
-        run: |
-          echo "This CI job has failed, we avoid terminating the Treadmill job"
-          echo "immediately. It will be active until it reaches its timeout."
-          echo ""
-          echo "If you added SSH keys to the `job enqueue` command, you can"
-          echo "open an interactive session to this host. Connection"
-          echo "information is available here:"
-          echo "https://book.treadmill.ci/treadmillci-deployment/sites.html"
-          echo ""
-          echo "TODO: print host / supervisor ID as part of workflow"
-          echo "TODO: determine public SSH endpoint automatically and print"
-          echo "TODO: allow adding SSH keys to running Treadmill jobs"
