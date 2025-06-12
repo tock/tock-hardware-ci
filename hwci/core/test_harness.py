@@ -3,9 +3,6 @@
 # Copyright Tock Contributors 2024.
 
 
-class TestHarness(object):
-    """Base class for all tests. By default it does nothing with the boards."""
-
-    def test(self, boards):
-        """Entry point: a list of BoardHarness objects is passed."""
+class TestHarness:
+    def test(self, board):
         pass
