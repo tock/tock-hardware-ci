@@ -1,6 +1,6 @@
-model: nrf52840dk
-serial_number: '8ff22e8e-ead7-433a-a921-c7206face09d'
-board_module: hwci/boards/nrf52dk.py
+model: RP2350
+serial_number: 'E6616408437E5133'
+board_module: hwci/boards/RP2350.py
 features:
   ble: true
   debugger: jlink
