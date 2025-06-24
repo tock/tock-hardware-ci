@@ -268,11 +268,8 @@ jobs:
           SUPERVISOR_ID: ${{ inputs.supervisor-id }}
           BOARD_DESCRIPTORS: ${{ inputs.board-descriptors }}
         run: |
-          # MODIFY BEFORE merge vvvvv
-          cd ./hwci
-          ls
-          source ./.venv/bin/activate
-          cd ..
+          # Activate the virtual environment from the hwci directory
+          source ./hwci/.venv/bin/activate
 
           STEP_FAIL=0
 
@@ -312,16 +309,96 @@ jobs:
               BOARD_DESC_ARGS+=" $DESC"
             done
 
-            pwd
-
-            echo "python3 hwci/core/main.py $BOARD_DESC_ARGS --test hwci/$TEST 2>&1 | tee ./job-output.txt || FAIL=1"
+            echo "Running from directory: $(pwd)"
+            echo "Command: python3 hwci/core/main.py $BOARD_DESC_ARGS --test hwci/$TEST"
 
             # Run test with multiple board descriptors
             python3 hwci/core/main.py $BOARD_DESC_ARGS --test "hwci/$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
 
           else
-            # Run standard single-board test
-            python3 hwci/core/main.py --board hwci/boards/nrf52dk.py --test "hwci/$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+            # For single-board test
+            echo "Running single-board test"
+            
+            # Try to determine which supervisor we're running on from the Host ID file
+            HOST_ID=$(cat /run/tml/host-id 2>/dev/null || echo "")
+            if [ -n "$HOST_ID" ]; then
+              echo "Running on host/supervisor: $HOST_ID"
+            fi
+            
+            # Look for board descriptor based on runtime host ID or provided supervisor ID
+            BOARD_DESC_FILE=""
+            
+            # First priority: Use the host ID we're actually running on
+            if [ -n "$HOST_ID" ] && [ -d "board_descriptors/$HOST_ID" ]; then
+              echo "Looking for board descriptor in supervisor directory: board_descriptors/$HOST_ID/"
+              # Find first board descriptor YAML in the supervisor's directory
+              BOARD_DESC_FILE=$(find "board_descriptors/$HOST_ID" -name "board-*.yml" -type f | head -n 1)
+              
+              if [ -n "$BOARD_DESC_FILE" ]; then
+                echo "Found board descriptor for current supervisor: $BOARD_DESC_FILE"
+              else
+                echo "WARNING: Supervisor directory exists but no board descriptor found"
+              fi
+            fi
+            
+            # Second priority: If SUPERVISOR_ID was provided as input but we didn't find descriptor yet
+            if [ -z "$BOARD_DESC_FILE" ] && [ -n "$SUPERVISOR_ID" ]; then
+              echo "Checking provided SUPERVISOR_ID: $SUPERVISOR_ID"
+              # Check if it's a full file path
+              if [ -f "$SUPERVISOR_ID" ]; then
+                BOARD_DESC_FILE="$SUPERVISOR_ID"
+                echo "Using provided board descriptor path: $BOARD_DESC_FILE"
+              elif [ -d "board_descriptors/$SUPERVISOR_ID" ]; then
+                # It's just the UUID, look for first board descriptor in that directory
+                BOARD_DESC_FILE=$(find "board_descriptors/$SUPERVISOR_ID" -name "board-*.yml" -type f | head -n 1)
+                if [ -n "$BOARD_DESC_FILE" ]; then
+                  echo "Found board descriptor in provided supervisor directory: $BOARD_DESC_FILE"
+                fi
+              fi
+            fi
+            
+            # Third priority: Fall back to any available board descriptor
+            if [ -z "$BOARD_DESC_FILE" ] || [ ! -f "$BOARD_DESC_FILE" ]; then
+              echo "WARNING: Could not find supervisor-specific board descriptor"
+              echo "Looking for any available nrf52840dk board descriptor..."
+              BOARD_DESC_FILE=$(find board_descriptors -name "board-nrf52840dk-*.yml" -type f | head -n 1)
+              
+              if [ -n "$BOARD_DESC_FILE" ]; then
+                echo "Using fallback board descriptor: $BOARD_DESC_FILE"
+              fi
+            fi
+            
+            # Last resort: Create a minimal board descriptor
+            if [ -z "$BOARD_DESC_FILE" ] || [ ! -f "$BOARD_DESC_FILE" ]; then
+              echo "WARNING: No board descriptor found, creating minimal temporary descriptor"
+              echo "Note: GPIO tests will not work without proper pin_mappings"
+              
+              TEMP_DESC_DIR="./temp_board_descriptors"
+              mkdir -p "$TEMP_DESC_DIR"
+              BOARD_DESC_FILE="$TEMP_DESC_DIR/board-nrf52840dk-default.yml"
+              
+              cat > "$BOARD_DESC_FILE" <<EOF
+model: nrf52840dk
+serial_number: ''
+board_module: hwci/boards/nrf52dk.py
+features:
+  ble: true
+  debugger: jlink
+  gpio: false
+EOF
+            fi
+
+            echo "Using board descriptor: $BOARD_DESC_FILE"
+            echo "Running from directory: $(pwd)"
+            echo "Command: python3 hwci/core/main.py --board-descriptors $BOARD_DESC_FILE --test hwci/$TEST"
+            
+            # Run test with board descriptor
+            python3 hwci/core/main.py --board-descriptors "$BOARD_DESC_FILE" --test "hwci/$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+            
+            # Clean up temporary descriptor if we created one
+            if [ -d "./temp_board_descriptors" ]; then
+              rm -rf "./temp_board_descriptors"
+            fi
           fi
 
           set +o pipefail
