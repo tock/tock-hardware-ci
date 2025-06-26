@@ -377,7 +377,7 @@ jobs:
               mkdir -p "$TEMP_DESC_DIR"
               BOARD_DESC_FILE="$TEMP_DESC_DIR/board-nrf52840dk-default.yml"
               
-              cat > "$BOARD_DESC_FILE" <<EOF
+              cat > "$BOARD_DESC_FILE" <<'DESCRIPTOR_EOF'
 model: nrf52840dk
 serial_number: ''
 board_module: hwci/boards/nrf52dk.py
@@ -385,7 +385,7 @@ features:
   ble: true
   debugger: jlink
   gpio: false
-EOF
+DESCRIPTOR_EOF
             fi
 
             echo "Using board descriptor: $BOARD_DESC_FILE"
