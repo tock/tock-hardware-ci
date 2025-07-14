@@ -4,4 +4,4 @@
 
 from utils.test_helpers import WaitForConsoleMessageTest
 
-test = WaitForConsoleMessageTest(["c_hello"], "Hello World!")
+test = WaitForConsoleMessageTest(["c_hello"], "Hello Mars!")
