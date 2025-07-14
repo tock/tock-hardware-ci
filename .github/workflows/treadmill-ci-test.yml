@@ -22,11 +22,18 @@ on:
   # secrets below, even if they are using an appropriate deployment environment
   # and the workflow runs have been approved according to this environment's
   # rules. We don't know whether this is a bug on GitHub's end or deliberate.
+  #
   # Either way, for now we disable this workflow to run on PRs until we have
   # an API proxy that securely performs these GitHub API calls (adding runners
   # and starting Treadmill jobs with those runner registration tokens), which
   # allows this workflow to run without access to repository secrets.
-  #pull_request:
+  #
+  # However, because GitHub's merge queues don't allow to differentiate required
+  # checks for *entering* the merge queue from those that are required to *pass*
+  # it, we also can't disable this trigger entirely. Instead, we use a selector
+  # to avoid running any actual checks on this trigger, while still technically
+  # succeeding for PRs.
+  pull_request:
 
   workflow_dispatch:
     inputs:
@@ -48,6 +55,9 @@ permissions:
 jobs:
   hwci-determine-tests:
     runs-on: ubuntu-latest
+
+    # Don't run on a pull request, as explained above.
+    if: github.event_name != 'pull_request'
 
     outputs:
       hwci-tests-json: ${{ steps.determine-tests.outputs.hwci-tests-json }}
@@ -91,7 +101,9 @@ jobs:
 
     # This checks whether there is at least one test to run, see
     # https://github.com/orgs/community/discussions/27125#discussioncomment-3254720
-    if: fromJSON(needs.hwci-determine-tests.outputs.hwci-tests-json)[0] != null
+    #
+    # Don't run on a pull request, as explained above.
+    if: github.event_name != 'pull_request' && (fromJSON(needs.hwci-determine-tests.outputs.hwci-tests-json)[0] != null || github.event_name == 'workflow_dispatch')
 
     with:
       # Only run on a specific repository, as others will not have the right
@@ -101,7 +113,7 @@ jobs:
 
       # Provide access to the required Treadmill secrets by running in the
       # appropriate environment (depending on the on: triggers above)
-      job-environment: ${{ (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && 'treadmill-ci' || 'treadmill-ci-merged' }}
+      job-environment: ${{ github.event_name == 'workflow_dispatch' && 'treadmill-ci' || 'treadmill-ci-merged' }}
 
 
       # This workflow tests the tock-hardware-ci scripts itself, so take the
@@ -131,5 +143,5 @@ jobs:
 
     steps:
       - name: Fail if any of the 'hwci-treadmill-dispatch' jobs failed
-        if: github.event_name != 'pull_request' && contains(needs.*.result, 'failure')
+        if: contains(needs.*.result, 'failure')
         run: exit 1
