@@ -8,14 +8,12 @@ env:
 #
 # KEEP IN SYNC WITH `environment:` ATTRIBUTE BELOW:
 on:
-  # Regular CI on the long-lived dev branch
   push:
     branches:
+      - main
       - staging/**
 
   # CI requested by the GitHub Merge Queue
-  # • fires once per merge-group creation
-  # • filtered to groups that will merge into main or any dev/* branch
   merge_group:
     branches: [main]
     types: [checks_requested]
