@@ -8,9 +8,17 @@ env:
 #
 # KEEP IN SYNC WITH `environment:` ATTRIBUTE BELOW:
 on:
+  # Regular CI on the long-lived dev branch
   push:
     branches:
-      - main
+      - staging/**
+
+  # CI requested by the GitHub Merge Queue
+  # • fires once per merge-group creation
+  # • filtered to groups that will merge into main or any dev/* branch
+  merge_group:
+    branches: [main]
+    types: [checks_requested]
   # Pull requests from forks will not have access to the required GitHub API
   # secrets below, even if they are using an appropriate deployment environment
   # and the workflow runs have been approved according to this environment's
@@ -20,9 +28,6 @@ on:
   # and starting Treadmill jobs with those runner registration tokens), which
   # allows this workflow to run without access to repository secrets.
   #pull_request:
-  merge_group: # Run CI for the GitHub merge queue
-  # Manually dispatch for a specific branch (will require approval
-  # through the treadmill-ci-merged environment:
   workflow_dispatch:
     inputs:
       tock-kernel-ref:
