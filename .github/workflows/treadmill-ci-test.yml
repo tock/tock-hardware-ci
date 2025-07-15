@@ -1,28 +1,23 @@
-name: treadmill-ci-test
+name: treadmill-ci-dev-branch
 
 env:
   TERM: xterm # Makes tput work in actions output
 
-# Controls when the action will run. Triggers the workflow on pull request and
-# merge group checks:
-#
-# KEEP IN SYNC WITH `environment:` ATTRIBUTE BELOW:
+# Controls when the action will run. Triggers the workflow on commits to the dev branch
 on:
+  # Regular CI on the long-lived dev branch
   push:
     branches:
-      - main
-  # Pull requests from forks will not have access to the required GitHub API
-  # secrets below, even if they are using an appropriate deployment environment
-  # and the workflow runs have been approved according to this environment's
-  # rules. We don't know whether this is a bug on GitHub's end or deliberate.
-  # Either way, for now we disable this workflow to run on PRs until we have
-  # an API proxy that securely performs these GitHub API calls (adding runners
-  # and starting Treadmill jobs with those runner registration tokens), which
-  # allows this workflow to run without access to repository secrets.
-  #pull_request:
-  merge_group: # Run CI for the GitHub merge queue
-  # Manually dispatch for a specific branch (will require approval
-  # through the treadmill-ci-merged environment:
+      - dev/multiple_board_thci_clean
+
+  # CI requested by the GitHub Merge Queue
+  # • fires once per merge-group creation
+  # • filtered to groups that will merge into main or any dev/* branch
+  merge_group:
+    branches: [main, dev/**]
+    types: [checks_requested]
+
+  # Manually dispatch for a specific branch
   workflow_dispatch:
     inputs:
       tock-kernel-ref:
@@ -84,28 +79,25 @@ jobs:
 
     uses: ./.github/workflows/treadmill-ci.yml
 
-    # This checks whether there is at least one test to run, see
-    # https://github.com/orgs/community/discussions/27125#discussioncomment-3254720
+    # Skip if the selector script found no tests
     if: fromJSON(needs.analyze-changes.outputs.hwci-tests-json)[0] != null
 
     with:
-      # Only run on a specific repository, as others will not have the right
-      # environments set up and secrets configured. Forks may want to change
-      # this parameter.
       repository-filter: 'tock/tock-hardware-ci'
 
-      # Provide access to the required Treadmill secrets by running in the
-      # appropriate environment (depending on the on: triggers above)
-      job-environment: ${{ (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && 'treadmill-ci' || 'treadmill-ci-merged' }}
+      # Pick the right secrets automatically:
+      # • merge-queue runs → environment `merge-queue-ci`
+      # • everything else  → environment `treadmill-ci-merged`
+      job-environment: ${{ github.event_name == 'merge_group'
+                           && 'merge-queue-ci'
+                           || 'treadmill-ci-merged' }}
 
-
-      # This workflow tests the tock-hardware-ci scripts itself, so take the
-      # current GITHUB_SHA:
+      # Pass revision information straight through
       tock-hardware-ci-ref: ${{ github.sha }}
-
-      # Use the latest upstream Tock kernel / userspace components:
       tock-kernel-ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tock-kernel-ref || 'master' }}
       libtock-c-ref: ${{ github.event_name == 'workflow_dispatch' && inputs.libtock-c-ref || 'master' }}
-      tests-json: ${{ (github.event_name == 'workflow_dispatch' && inputs.tests-json != '') && inputs.tests-json || needs.analyze-changes.outputs.hwci-tests-json }}
+      tests-json: ${{ (github.event_name == 'workflow_dispatch' && inputs.tests-json != '')
+                       && inputs.tests-json
+                       || needs.analyze-changes.outputs.hwci-tests-json }}
 
     secrets: inherit
