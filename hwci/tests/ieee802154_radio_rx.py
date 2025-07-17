@@ -8,6 +8,7 @@ Tests packet transmission and reception between two boards.
 """
 
 import time
+import logging
 from core.test_harness import TestHarness
 
 
