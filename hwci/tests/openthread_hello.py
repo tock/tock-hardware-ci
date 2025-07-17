@@ -9,6 +9,7 @@ Tests that a Tock device can join a Thread network as a child device.
 
 import time
 import subprocess
+import logging
 from core.test_harness import TestHarness
 
 
@@ -66,24 +67,32 @@ class OpenThreadHelloTest(TestHarness):
         tock_board.flash_kernel()
         tock_board.flash_app("openthread/openthread_hello")
         
-        # After flashing, the board automatically starts running
-        # Clear serial buffer
-        tock_board.serial.flush_buffer()
+        # Wait for application to initialize
+        logging.info("Waiting for OpenThread application to initialize...")
+        time.sleep(2)
         
         # Monitor output for successful attachment
         start_time = time.time()
+        test_duration = 20  # Give more time for Thread network joining
         attached = False
         
-        while time.time() - start_time < 10 and not attached:
+        logging.info(f"Waiting for device to join Thread network (timeout: {test_duration}s)...")
+        
+        while time.time() - start_time < test_duration and not attached:
             try:
-                line = tock_board.serial.expect(r'.*', timeout=0.5)
-                if line and "Successfully attached to Thread network as a child." in line:
-                    attached = True
-                    break
-            except:
+                line = tock_board.serial.expect(r'.+', timeout=0.5, timeout_error=False)
+                if line:
+                    line_str = line.decode('utf-8', errors='replace') if isinstance(line, bytes) else str(line)
+                    logging.debug(f"OpenThread output: {line_str.strip()}")
+                    if "Successfully attached to Thread network as a child." in line_str:
+                        attached = True
+                        logging.info("Device successfully attached to Thread network!")
+                        break
+            except Exception as e:
+                logging.debug(f"Exception during expect: {e}")
                 continue
                 
-        assert attached, "OpenThread hello test failed: Device did not attach to Thread network within 10 seconds"
+        assert attached, f"OpenThread hello test failed: Device did not attach to Thread network within {test_duration} seconds"
         
         print("OpenThread hello test passed: Device successfully attached to Thread network as a child")
 

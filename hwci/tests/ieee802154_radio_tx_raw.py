@@ -8,6 +8,7 @@ Tests raw packet transmission between two boards.
 """
 
 import time
+import logging
 from core.test_harness import TestHarness
 
 
@@ -31,24 +32,26 @@ class RadioTxRawTest(TestHarness):
         board_rx.flash_kernel()
         board_rx.flash_app("tests/ieee802154/radio_rx")
         
-        # After flashing, boards automatically start running
-        # Clear serial buffers
-        board_tx.serial.flush_buffer()
-        board_rx.serial.flush_buffer()
-        
-        # Give boards time to fully initialize after flashing
+        # Wait for applications to initialize
+        logging.info("Waiting for applications to initialize...")
         time.sleep(2)
         
         # Collect output from RX board for 10 seconds
         start_time = time.time()
+        test_duration = 10
         rx_output = []
         
-        while time.time() - start_time < 10:
+        logging.info(f"Collecting received packets for {test_duration} seconds...")
+        
+        while time.time() - start_time < test_duration:
             try:
-                line = board_rx.serial.expect(r'.*', timeout=0.1)
+                line = board_rx.serial.expect(r'.+', timeout=0.5, timeout_error=False)
                 if line:
-                    rx_output.append(line)
-            except:
+                    line_str = line.decode('utf-8', errors='replace') if isinstance(line, bytes) else str(line)
+                    rx_output.append(line_str)
+                    logging.debug(f"RX output: {line_str.strip()}")
+            except Exception as e:
+                logging.debug(f"Exception during expect: {e}")
                 continue
                 
         # Analyze the received packets
