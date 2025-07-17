@@ -93,6 +93,7 @@ def main():
         board_instance.model = board_info.get("model")
         board_instance.serial_number = board_info.get("serial_number")
         board_instance.features = board_info.get("features", {})
+        board_instance.pin_mappings = board_info.get("pin_mappings")
         if hasattr(board_instance, "update_serial_port"):
             board_instance.update_serial_port()
 
