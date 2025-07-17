@@ -33,7 +33,7 @@ class Nrf52dk(TockloaderBoard):
         self.board = "nrf52dk"
 
         self.serial = self.get_serial_port()
-        self.gpio = self.get_gpio_interface()
+        self.gpio = None  # Will be initialized later if pin_mappings are provided
 
     def get_uart_port(self):
         logging.info("Getting list of serial ports")
@@ -113,7 +113,7 @@ class Nrf52dk(TockloaderBoard):
 
     def get_gpio_interface(self):
         # If there is no 'pin_mappings' attribute, skip GPIO config
-        if not hasattr(self, "pin_mappings"):
+        if not hasattr(self, "pin_mappings") or self.pin_mappings is None:
             logging.info(
                 "No pin_mappings found in board descriptor; skipping GPIO init."
             )
