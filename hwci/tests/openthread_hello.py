@@ -101,13 +101,13 @@ class OpenThreadHelloTest(TestHarness):
         # Monitor output for successful attachment
         start_time = time.time()
         test_duration = 30  # Give more time for Thread network joining
-        attached = False
+        output_buffer = []
 
         logging.info(
             f"Waiting for device to join Thread network (timeout: {test_duration}s)..."
         )
 
-        while time.time() - start_time < test_duration and not attached:
+        while time.time() - start_time < test_duration:
             try:
                 line = tock_board.serial.expect(r".+", timeout=0.5, timeout_error=False)
                 if line:
@@ -116,17 +116,29 @@ class OpenThreadHelloTest(TestHarness):
                         if isinstance(line, bytes)
                         else str(line)
                     )
+                    output_buffer.append(line_str)
                     logging.debug(f"OpenThread output: {line_str.strip()}")
-                    if (
-                        "Successfully attached to Thread network as a child."
-                        in line_str
-                    ):
-                        attached = True
-                        logging.info("Device successfully attached to Thread network!")
-                        break
             except Exception as e:
                 logging.debug(f"Exception during expect: {e}")
                 continue
+        
+        # Join all output into a single string to handle fragmented serial data
+        full_output = ''.join(output_buffer)
+        
+        # Check for successful attachment
+        attached = "Successfully attached to Thread network as a child." in full_output
+        
+        # Also check for state changes
+        if "[State Change] - Child." in full_output:
+            logging.info("Device transitioned to Child state")
+        
+        # Log debug info
+        if full_output:
+            logging.debug(f"Full OpenThread output length: {len(full_output)} chars")
+            if not attached:
+                logging.warning("Did not find attachment message in output")
+                # Log a sample of output for debugging
+                logging.debug(f"Last 500 chars of output: {full_output[-500:]}")
 
         assert (
             attached
