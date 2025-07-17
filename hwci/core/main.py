@@ -36,6 +36,26 @@ def main():
     # Ensure that Python can find 'hwci' modules
     sys.path.append(str(Path(__file__).parent.parent))
 
+    # Load test module early to get board requirements if any
+    test_module = None
+    test_requirements = {}
+    try:
+        test_path = args.test
+        test_spec = importlib.util.spec_from_file_location("test_module", test_path)
+        test_module = importlib.util.module_from_spec(test_spec)
+        test_spec.loader.exec_module(test_module)
+        
+        # Look for test requirements
+        if hasattr(test_module, "test"):
+            test_instance = test_module.test
+            test_class = test_instance.__class__
+            if hasattr(test_class, "BOARD_REQUIREMENTS"):
+                test_requirements = test_class.BOARD_REQUIREMENTS
+                logging.info(f"Found test board requirements: {test_requirements}")
+    except Exception as e:
+        logging.debug(f"Could not load test requirements: {e}")
+        # Will load test module again later
+
     # 1. Parse each board descriptor
     boards = []
     if not args.board_descriptors:
@@ -49,7 +69,7 @@ def main():
     logging.info(f"Python path: {sys.path}")
     logging.info(f"Board descriptors: {args.board_descriptors}")
 
-    for descriptor_path in args.board_descriptors:
+    for board_index, descriptor_path in enumerate(args.board_descriptors):
         logging.info(f"Loading board descriptor: {descriptor_path}")
         with open(descriptor_path, "r") as f:
             yaml_content = f.read()
@@ -57,7 +77,7 @@ def main():
             logging.info(f"YAML content:\n{yaml_content}")
             # Parse the YAML
             board_info = yaml.safe_load(yaml_content)
-
+            
         if not board_info:
             logging.error(
                 f"Board descriptor file {descriptor_path} is empty or invalid."
@@ -66,6 +86,17 @@ def main():
 
         # We expect something like: board_module: boards/nrf52dk.py
         board_module_path = board_info.get("board_module")
+        
+        # Merge test requirements for this board index if any
+        if board_index in test_requirements:
+            requirements = test_requirements[board_index]
+            logging.info(f"Applying test requirements for board {board_index}: {requirements}")
+            # Test requirements override descriptor values
+            board_info.update(requirements)
+            # If test specifies a different board module, use it
+            if "board_module" in requirements:
+                board_module_path = requirements["board_module"]
+                logging.info(f"Test overrides board module to: {board_module_path}")
         if not board_module_path:
             logging.error(f"Missing 'board_module' in descriptor {descriptor_path}")
             sys.exit(1)
@@ -84,21 +115,14 @@ def main():
 
         # 3. Create board instance using factory function or grab existing board
         if hasattr(mod, "create_board"):
-            # Use factory function with board descriptor data
-            board_instance = mod.create_board(
-                model=board_info.get("model"),
-                serial_number=board_info.get("serial_number"),
-                features=board_info.get("features", {}),
-                pin_mappings=board_info.get("pin_mappings")
-            )
+            # Use factory function with all board descriptor data (including test requirements)
+            board_instance = mod.create_board(**board_info)
         elif hasattr(mod, "board"):
             # Fallback to old style - grab pre-created board object
             board_instance = getattr(mod, "board")
-            # Store descriptor metadata on the board instance
-            board_instance.model = board_info.get("model")
-            board_instance.serial_number = board_info.get("serial_number")
-            board_instance.features = board_info.get("features", {})
-            board_instance.pin_mappings = board_info.get("pin_mappings")
+            # Store all descriptor metadata (including test requirements) on the board instance
+            for key, value in board_info.items():
+                setattr(board_instance, key, value)
             if hasattr(board_instance, "update_serial_port"):
                 board_instance.update_serial_port()
         else:
@@ -107,11 +131,12 @@ def main():
 
         boards.append(board_instance)
 
-    # 4. Load the test module
-    test_path = args.test
-    test_spec = importlib.util.spec_from_file_location("test_module", test_path)
-    test_module = importlib.util.module_from_spec(test_spec)
-    test_spec.loader.exec_module(test_module)
+    # 4. Load the test module (if not already loaded for requirements)
+    if test_module is None:
+        test_path = args.test
+        test_spec = importlib.util.spec_from_file_location("test_module", test_path)
+        test_module = importlib.util.module_from_spec(test_spec)
+        test_spec.loader.exec_module(test_module)
 
     if not hasattr(test_module, "test"):
         logging.error("No test variable found in the specified test module")

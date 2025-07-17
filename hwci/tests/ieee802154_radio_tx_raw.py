@@ -13,6 +13,12 @@ from core.test_harness import TestHarness
 
 
 class RadioTxRawTest(TestHarness):
+    # Board requirements - TX board needs thread kernel for raw transmission
+    BOARD_REQUIREMENTS = {
+        0: {"kernel_config": "thread"},   # TX board needs thread kernel
+        1: {"kernel_config": "standard"}  # RX board can use standard kernel
+    }
+    
     def __init__(self):
         super().__init__()
         
