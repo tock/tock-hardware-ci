@@ -44,18 +44,14 @@ class OpenThreadHelloTest(TestHarness):
         if os.path.exists(router_firmware_path):
             print(f"Found router firmware at {router_firmware_path}")
             try:
-                # Use nrfjprog to flash the router firmware
+                # Use OpenOCD to flash the router firmware
+                # First erase the chip
+                router_board.erase_board()
+                
+                # Then flash the hex file using OpenOCD
                 cmd = [
-                    "nrfjprog",
-                    "-f",
-                    "nrf52",
-                    "--chiperase",
-                    "--program",
-                    router_firmware_path,
-                    "--reset",
-                    "--verify",
-                    "--snr",
-                    router_board.serial_number,
+                    "openocd",
+                    "-c", f"adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; adapter serial {router_board.serial_number}; init; flash write_image erase {router_firmware_path}; reset; exit"
                 ]
                 result = subprocess.run(cmd, capture_output=True, text=True, check=True)
                 print(
