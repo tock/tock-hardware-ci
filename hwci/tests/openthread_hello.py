@@ -9,7 +9,7 @@ Tests that a Tock device can join a Thread network as a child device.
 
 import time
 import subprocess
-from hwci.core.test_harness import TestHarness
+from core.test_harness import TestHarness
 
 
 class OpenThreadHelloTest(TestHarness):

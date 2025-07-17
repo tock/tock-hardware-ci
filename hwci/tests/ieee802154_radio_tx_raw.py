@@ -8,7 +8,7 @@ Tests raw packet transmission between two boards.
 """
 
 import time
-from hwci.core.test_harness import TestHarness
+from core.test_harness import TestHarness
 
 
 class RadioTxRawTest(TestHarness):

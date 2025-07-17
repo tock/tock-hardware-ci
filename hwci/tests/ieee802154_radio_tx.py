@@ -7,7 +7,7 @@ Test for IEEE 802.15.4 radio transmission functionality.
 Tests that packets can be successfully transmitted using the radio.
 """
 
-from hwci.utils.test_helpers import AnalyzeConsoleTest
+from utils.test_helpers import AnalyzeConsoleTest
 
 
 class RadioTxTest(AnalyzeConsoleTest):
