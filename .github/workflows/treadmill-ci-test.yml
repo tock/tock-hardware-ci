@@ -27,13 +27,8 @@ on:
   # an API proxy that securely performs these GitHub API calls (adding runners
   # and starting Treadmill jobs with those runner registration tokens), which
   # allows this workflow to run without access to repository secrets.
-  #
-  # However, because GitHub's merge queues don't allow to differentiate required
-  # checks for *entering* the merge queue from those that are required to *pass*
-  # it, we also can't disable this trigger entirely. Instead, we use a selector
-  # to avoid running any actual checks on this trigger, while still technically
-  # succeeding for PRs.
-  pull_request:
+
+  #pull_request:
 
   workflow_dispatch:
     inputs:
@@ -101,9 +96,8 @@ jobs:
 
     # This checks whether there is at least one test to run, see
     # https://github.com/orgs/community/discussions/27125#discussioncomment-3254720
-    #
-    # Don't run on a pull request, as explained above.
-    if: github.event_name != 'pull_request' && (fromJSON(needs.hwci-determine-tests.outputs.hwci-tests-json)[0] != null || github.event_name == 'workflow_dispatch')
+
+    if: fromJSON(needs.hwci-determine-tests.outputs.hwci-tests-json)[0] != null
 
     with:
       # Only run on a specific repository, as others will not have the right
@@ -143,6 +137,6 @@ jobs:
 
     steps:
       - name: Fail if any of the 'hwci-treadmill-dispatch' jobs failed
-        if: contains(needs.*.result, 'failure')
-        run: exit 1
 
+        if: github.event_name != 'pull_request' && contains(needs.*.result, 'failure')
+        run: exit 1
