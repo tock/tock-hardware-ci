@@ -23,6 +23,13 @@ class RadioTxRawTest(TestHarness):
         board_tx = boards[0]
         board_rx = boards[1]
         
+        # Check if boards support raw transmission
+        # The TX board needs the thread tutorial kernel configuration
+        if not hasattr(board_tx, 'kernel_binary_name') or 'thread-tutorial' not in getattr(board_tx, 'kernel_binary_name', ''):
+            logging.warning("TX board may not support raw IEEE 802.15.4 transmission.")
+            logging.warning("This test requires the nrf52dk_thread board configuration.")
+            logging.warning("Consider using board_module: hwci/boards/nrf52dk_thread.py in your board descriptor.")
+        
         # Erase and flash both boards
         board_tx.erase_board()
         board_tx.flash_kernel()
