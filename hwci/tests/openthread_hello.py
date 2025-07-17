@@ -55,11 +55,11 @@ class OpenThreadHelloTest(TestHarness):
                     "--reset",
                     "--verify",
                     "--snr",
-                    router_board.board.serial_number,
+                    router_board.serial_number,
                 ]
                 result = subprocess.run(cmd, capture_output=True, text=True, check=True)
                 print(
-                    f"Router firmware flashed successfully to board {router_board.board.serial_number}"
+                    f"Router firmware flashed successfully to board {router_board.serial_number}"
                 )
                 time.sleep(2)  # Give router time to boot
             except subprocess.CalledProcessError as e:
