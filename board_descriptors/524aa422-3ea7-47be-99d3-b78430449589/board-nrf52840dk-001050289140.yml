@@ -30,3 +30,11 @@ pin_mappings:
     target_pin_function: BUTTON2
     target_pin_mode: input
     target_pin_active: low
+  P1.01:
+    io_interface: raspberrypi5gpio
+    io_pin_spec: 16
+    target_pin_function: GPIO0
+  P1.02:
+    io_interface: raspberrypi5gpio
+    io_pin_spec: 13
+    target_pin_function: GPIO1
