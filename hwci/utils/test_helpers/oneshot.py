@@ -8,9 +8,11 @@ class OneshotTest(TestHarness):
 
     def test(self, boards):
         logging.info("Starting OneshotTest")
-        if len(boards) != 1:
-            raise ValueError(
-                f"OneshotTest requires exactly 1 board. Got {len(boards)} boards."
+        if len(boards) == 0:
+            raise ValueError("OneshotTest requires at least 1 board. Got 0 boards.")
+        elif len(boards) > 1:
+            logging.warning(
+                f"OneshotTest expects 1 board but got {len(boards)} boards. Using only the first board."
             )
         single_board = boards[0]
 
