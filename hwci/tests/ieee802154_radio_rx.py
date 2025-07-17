@@ -54,27 +54,45 @@ class RadioRxTest(TestHarness):
                 logging.debug(f"Exception during expect: {e}")
                 continue
                 
-        # Analyze the received packets
+        # Join all output into a single string to handle fragmented serial data
+        full_output = ''.join(rx_output)
+        
+        # Count complete packet patterns in the joined output
         success_count = 0
         EXPECTED_PACKETS = 40  # Based on 250ms TX interval over 10s
         
-        i = 0
-        while i < len(rx_output):
-            # Check for complete packet reception pattern
-            if (i + 8 < len(rx_output) and
-                "Received packet with payload of 60 bytes from offset 12" in rx_output[i] and
-                "00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f" in rx_output[i+1] and
-                "10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f" in rx_output[i+2] and
-                "20 21 22 23 24 25 26 27 28 29 2a 2b 2c 2d 2e 2f" in rx_output[i+3] and
-                "30 31 32 33 34 35 36 37 38 39 3a 3b" in rx_output[i+4] and
-                "Packet destination PAN ID: 0xabcd" in rx_output[i+5] and
-                "Packet destination address: 0x0802" in rx_output[i+6] and
-                "Packet source PAN ID: 0xabcd" in rx_output[i+7] and
-                "Packet source address: 0x1540" in rx_output[i+8]):
-                success_count += 1
-                i += 9
-            else:
-                i += 1
+        # Look for the complete packet pattern as a single block
+        packet_pattern = (
+            "Received packet with payload of 60 bytes from offset 12\n"
+            "00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f\n"
+            "10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f\n"
+            "20 21 22 23 24 25 26 27 28 29 2a 2b 2c 2d 2e 2f\n"
+            "30 31 32 33 34 35 36 37 38 39 3a 3b\n"
+            "Packet destination PAN ID: 0xabcd\n"
+            "Packet destination address: 0x0802\n"
+            "Packet source PAN ID: 0xabcd\n"
+            "Packet source address: 0x1540"
+        )
+        
+        # Also check for pattern without newlines (in case output is concatenated)
+        packet_pattern_no_newlines = packet_pattern.replace('\n', '')
+        
+        # Count occurrences of the complete packet pattern
+        import re
+        # Use regex to find the pattern with flexible whitespace
+        pattern_regex = re.compile(
+            r"Received packet with payload of 60 bytes from offset 12\s+"
+            r"00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f\s+"
+            r"10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f\s+"
+            r"20 21 22 23 24 25 26 27 28 29 2a 2b 2c 2d 2e 2f\s+"
+            r"30 31 32 33 34 35 36 37 38 39 3a 3b\s+"
+            r"Packet destination PAN ID: 0xabcd\s+"
+            r"Packet destination address: 0x0802\s+"
+            r"Packet source PAN ID: 0xabcd\s+"
+            r"Packet source address: 0x1540"
+        )
+        
+        success_count = len(pattern_regex.findall(full_output))
                 
         success_rate = success_count / EXPECTED_PACKETS if EXPECTED_PACKETS > 0 else 0
         
