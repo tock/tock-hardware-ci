@@ -10,14 +10,16 @@ Tests that a Tock device can join a Thread network as a child device.
 import time
 import subprocess
 import logging
+import os
+import tempfile
 from core.test_harness import TestHarness
 
 
 class OpenThreadHelloTest(TestHarness):
-    # Board requirements - TX board needs thread kernel for raw transmission
+    # Board requirements
     BOARD_REQUIREMENTS = {
-        0: {"kernel_config": "standard"},  # TX board needs thread kernel
-        1: {"kernel_config": "thread"},  # RX board can use standard kernel
+        0: {"kernel_config": "standard"},  # Router board - will be erased and flashed with Nordic firmware
+        1: {"kernel_config": "thread"},  # Tock MTD board needs thread kernel
     }
 
     def __init__(self):
@@ -32,28 +34,45 @@ class OpenThreadHelloTest(TestHarness):
         router_board = boards[0]
         tock_board = boards[1]
 
-        # Flash the router firmware to board 0 using nrfjprog
+        # Flash the router firmware to board 0
         # Note: This requires the ot-central-controller.hex file to be available
         print(f"Checking for Thread router firmware...")
 
         # First, check if router firmware file exists
-        import os
-
         router_firmware_path = "ot-central-controller.hex"
 
         if os.path.exists(router_firmware_path):
             print(f"Found router firmware at {router_firmware_path}")
             try:
-                # Use OpenOCD to flash the router firmware
-                # First erase the chip
+                # Use tockloader with OpenOCD to flash the router firmware
+                # First completely erase the chip (removes any Tock kernel)
                 router_board.erase_board()
                 
-                # Then flash the hex file using OpenOCD
-                cmd = [
-                    "openocd",
-                    "-c", f"adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; adapter serial {router_board.serial_number}; init; flash write_image erase {router_firmware_path}; reset; exit"
-                ]
-                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                # Convert hex to bin for tockloader
+                with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as tmp_bin:
+                    # Use objcopy to convert hex to bin
+                    objcopy_cmd = [
+                        "arm-none-eabi-objcopy",
+                        "-I", "ihex",
+                        "-O", "binary",
+                        router_firmware_path,
+                        tmp_bin.name
+                    ]
+                    subprocess.run(objcopy_cmd, check=True)
+                    
+                    # Use tockloader to flash the binary
+                    tockloader_cmd = [
+                        "tockloader",
+                        "flash",
+                        "--openocd-serial-number", router_board.serial_number,
+                        "--openocd",
+                        "--openocd-board", "nordic_nrf52_dk.cfg",
+                        "--address", "0x00000",
+                        "--board", "nrf52dk",
+                        tmp_bin.name
+                    ]
+                    result = subprocess.run(tockloader_cmd, capture_output=True, text=True, check=True)
+                    os.unlink(tmp_bin.name)
                 print(
                     f"Router firmware flashed successfully to board {router_board.serial_number}"
                 )
@@ -81,7 +100,7 @@ class OpenThreadHelloTest(TestHarness):
 
         # Monitor output for successful attachment
         start_time = time.time()
-        test_duration = 20  # Give more time for Thread network joining
+        test_duration = 30  # Give more time for Thread network joining
         attached = False
 
         logging.info(
