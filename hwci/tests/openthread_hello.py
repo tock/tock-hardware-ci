@@ -1,0 +1,91 @@
+# Licensed under the Apache License, Version 2.0 or the MIT License.
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+# Copyright Tock Contributors 2025.
+
+"""
+Test for OpenThread hello functionality.
+Tests that a Tock device can join a Thread network as a child device.
+"""
+
+import time
+import subprocess
+from hwci.core.test_harness import TestHarness
+
+
+class OpenThreadHelloTest(TestHarness):
+    def __init__(self):
+        super().__init__()
+        
+    def test(self, boards):
+        # Require 2 boards for this test
+        assert len(boards) >= 2, "OpenThread hello test requires at least 2 boards"
+        
+        # Board 0 will be the Thread router (flashed with Nordic firmware)
+        # Board 1 will be the Tock MTD (Minimal Thread Device)
+        router_board = boards[0]
+        tock_board = boards[1]
+        
+        # Flash the router firmware to board 0 using nrfjprog
+        # Note: This requires the ot-central-controller.hex file to be available
+        print(f"Checking for Thread router firmware...")
+        
+        # First, check if router firmware file exists
+        import os
+        router_firmware_path = "ot-central-controller.hex"
+        
+        if os.path.exists(router_firmware_path):
+            print(f"Found router firmware at {router_firmware_path}")
+            try:
+                # Use nrfjprog to flash the router firmware
+                cmd = [
+                    "nrfjprog",
+                    "-f", "nrf52",
+                    "--chiperase",
+                    "--program", router_firmware_path,
+                    "--reset",
+                    "--verify",
+                    "--snr", router_board.board.serial_number
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                print(f"Router firmware flashed successfully to board {router_board.board.serial_number}")
+                time.sleep(2)  # Give router time to boot
+            except subprocess.CalledProcessError as e:
+                print(f"Warning: Could not flash router firmware. Error: {e.stderr}")
+                print("Proceeding assuming router firmware is already present")
+        else:
+            print(f"Warning: Router firmware {router_firmware_path} not found")
+            print("IMPORTANT: This test requires a Thread router to be available")
+            print("Options:")
+            print("  1. Place ot-central-controller.hex in the repository root")
+            print("  2. Pre-flash one board with Thread router firmware")
+            print("  3. Have an external Thread router on the network")
+            print("Proceeding with test...")
+            
+        # Flash Tock and the OpenThread hello app to the MTD board
+        tock_board.erase_board()
+        tock_board.flash_kernel()
+        tock_board.flash_app("openthread/openthread_hello")
+        
+        # After flashing, the board automatically starts running
+        # Clear serial buffer
+        tock_board.serial.flush_buffer()
+        
+        # Monitor output for successful attachment
+        start_time = time.time()
+        attached = False
+        
+        while time.time() - start_time < 10 and not attached:
+            try:
+                line = tock_board.serial.expect(r'.*', timeout=0.5)
+                if line and "Successfully attached to Thread network as a child." in line:
+                    attached = True
+                    break
+            except:
+                continue
+                
+        assert attached, "OpenThread hello test failed: Device did not attach to Thread network within 10 seconds"
+        
+        print("OpenThread hello test passed: Device successfully attached to Thread network as a child")
+
+
+test = OpenThreadHelloTest()

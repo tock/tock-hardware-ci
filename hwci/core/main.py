@@ -82,20 +82,28 @@ def main():
             # Alternatively, if it's a dotted name like "boards.nrf52dk"
             mod = importlib.import_module(board_module_path)
 
-        # 3. Grab the 'board' object from the module
-        if not hasattr(mod, "board"):
-            logging.error(f"No 'board' object found in {board_module_path}")
+        # 3. Create board instance using factory function or grab existing board
+        if hasattr(mod, "create_board"):
+            # Use factory function with board descriptor data
+            board_instance = mod.create_board(
+                model=board_info.get("model"),
+                serial_number=board_info.get("serial_number"),
+                features=board_info.get("features", {}),
+                pin_mappings=board_info.get("pin_mappings")
+            )
+        elif hasattr(mod, "board"):
+            # Fallback to old style - grab pre-created board object
+            board_instance = getattr(mod, "board")
+            # Store descriptor metadata on the board instance
+            board_instance.model = board_info.get("model")
+            board_instance.serial_number = board_info.get("serial_number")
+            board_instance.features = board_info.get("features", {})
+            board_instance.pin_mappings = board_info.get("pin_mappings")
+            if hasattr(board_instance, "update_serial_port"):
+                board_instance.update_serial_port()
+        else:
+            logging.error(f"No 'create_board' function or 'board' object found in {board_module_path}")
             sys.exit(1)
-
-        board_instance = getattr(mod, "board")
-
-        # Optionally store descriptor metadata on the board instance
-        board_instance.model = board_info.get("model")
-        board_instance.serial_number = board_info.get("serial_number")
-        board_instance.features = board_info.get("features", {})
-        board_instance.pin_mappings = board_info.get("pin_mappings")
-        if hasattr(board_instance, "update_serial_port"):
-            board_instance.update_serial_port()
 
         boards.append(board_instance)
 

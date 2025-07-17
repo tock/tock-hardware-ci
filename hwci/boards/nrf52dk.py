@@ -313,5 +313,16 @@ class Nrf52dk(TockloaderBoard):
             logging.info(f"Reverted to directory: {os.getcwd()}")
 
 
-# Global board object used by the test harness
-board = Nrf52dk()
+# Factory function to create board instance
+def create_board(**kwargs):
+    board = Nrf52dk()
+    # Set attributes from board descriptor
+    for key, value in kwargs.items():
+        setattr(board, key, value)
+    # Re-initialize components that depend on descriptor attributes
+    if hasattr(board, 'update_serial_port'):
+        board.update_serial_port()
+    # Re-initialize GPIO with pin_mappings if available
+    if hasattr(board, 'pin_mappings'):
+        board.gpio = board.get_gpio_interface()
+    return board
