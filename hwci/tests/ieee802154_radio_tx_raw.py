@@ -36,6 +36,25 @@ class RadioTxRawTest(TestHarness):
         logging.info("Waiting for applications to initialize...")
         time.sleep(2)
         
+        # Monitor TX board output briefly to ensure it's transmitting
+        logging.info("Checking TX board output...")
+        tx_start = time.time()
+        tx_transmitting = False
+        while time.time() - tx_start < 2:
+            try:
+                line = board_tx.serial.expect(r'.+', timeout=0.5, timeout_error=False)
+                if line:
+                    line_str = line.decode('utf-8', errors='replace') if isinstance(line, bytes) else str(line)
+                    logging.info(f"TX output: {line_str.strip()}")
+                    if "Transmit" in line_str or "raw frame" in line_str:
+                        tx_transmitting = True
+            except Exception as e:
+                logging.debug(f"Exception during TX expect: {e}")
+                continue
+        
+        if not tx_transmitting:
+            logging.warning("TX board may not be transmitting properly")
+        
         # Collect output from RX board for 10 seconds
         start_time = time.time()
         test_duration = 10
@@ -57,12 +76,25 @@ class RadioTxRawTest(TestHarness):
         # Join all output into a single string to handle fragmented serial data
         full_output = ''.join(rx_output)
         
+        # Log first part of output to debug
+        if full_output:
+            logging.info(f"First 500 chars of RX output: {full_output[:500]}")
+        else:
+            logging.warning("No RX output received")
+        
         # Count complete packet patterns in the joined output
         success_count = 0
         EXPECTED_PACKETS = 20  # Raw TX sends fewer packets
         
         # Use regex to find the pattern with flexible whitespace
         import re
+        # First try to find any "Received packet" messages
+        received_packets = re.findall(r"Received packet with payload of \d+ bytes from offset \d+", full_output)
+        logging.info(f"Found {len(received_packets)} 'Received packet' messages")
+        if received_packets:
+            logging.info(f"First packet message: {received_packets[0]}")
+        
+        # Now look for the specific pattern we expect
         pattern_regex = re.compile(
             r"Received packet with payload of 60 bytes from offset 18\s+"
             r"00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f\s+"
