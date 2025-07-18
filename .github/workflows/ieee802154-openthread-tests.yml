@@ -50,3 +50,13 @@ jobs:
           "tests/openthread_hello.py"
         ]
     secrets: inherit
+
+  # Consolidate results into a single check
+  ieee802154-openthread-tests-success:
+    needs: [run-ieee802154-openthread-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any tests failed
+        if: contains(needs.*.result, 'failure')
+        run: exit 1

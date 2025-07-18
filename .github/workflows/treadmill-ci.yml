@@ -153,21 +153,43 @@ jobs:
 
           # If this is a multi-board test targeting a specific supervisor
           if [ "$MULTI_BOARD" = "true" ] && [ -n "$SUPERVISOR_ID" ]; then
+            echo "Attempting to enqueue multi-board job on supervisor: $SUPERVISOR_ID"
+            # For supervisor-specific jobs, only use the supervisor tag
             TML_JOB_ID_JSON="$(tml job enqueue \
               "$IMAGE_ID" \
-              --tag-config "supervisor:$SUPERVISOR_ID;host-type:$HOST_TYPE;host-arch:$HOST_ARCH" \
+              --tag-config "supervisor:$SUPERVISOR_ID" \
               --parameters "$TML_JOB_PARAMETERS" \
-            )"
+            )" || {
+              echo "ERROR: Failed to enqueue job. The supervisor $SUPERVISOR_ID may not be available or properly configured."
+              echo "Response: $TML_JOB_ID_JSON"
+              exit 1
+            }
           else
             # Default job enqueue for single board tests
             TML_JOB_ID_JSON="$(tml job enqueue \
               "$IMAGE_ID" \
               --tag-config "board:$DUT_BOARD;host-type:$HOST_TYPE;host-arch:$HOST_ARCH" \
               --parameters "$TML_JOB_PARAMETERS" \
-            )"
+            )" || {
+              echo "ERROR: Failed to enqueue job."
+              echo "Response: $TML_JOB_ID_JSON"
+              exit 1
+            }
+          fi
+
+          # Check if we got valid JSON response
+          if ! echo "$TML_JOB_ID_JSON" | jq -e . >/dev/null 2>&1; then
+            echo "ERROR: Invalid JSON response from tml job enqueue"
+            echo "Response: $TML_JOB_ID_JSON"
+            exit 1
           fi
 
           TML_JOB_ID="$(echo "$TML_JOB_ID_JSON" | jq -r .job_id)"
+          if [ "$TML_JOB_ID" = "null" ] || [ -z "$TML_JOB_ID" ]; then
+            echo "ERROR: Failed to get job_id from response"
+            echo "Response: $TML_JOB_ID_JSON"
+            exit 1
+          fi
           echo "Enqueued Treadmill job with ID $TML_JOB_ID"
 
 
