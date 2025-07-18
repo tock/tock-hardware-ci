@@ -15,52 +15,56 @@ from core.test_harness import TestHarness
 class RadioRxTest(TestHarness):
     def __init__(self):
         super().__init__()
-        
+
     def test(self, boards):
         # Require 2 boards for this test
         assert len(boards) >= 2, "Radio RX test requires at least 2 boards"
-        
+
         board_tx = boards[0]
         board_rx = boards[1]
-        
+
         # Erase and flash both boards
         board_tx.erase_board()
         board_tx.flash_kernel()
         board_tx.flash_app("tests/ieee802154/radio_tx")
-        
+
         board_rx.erase_board()
         board_rx.flash_kernel()
         board_rx.flash_app("tests/ieee802154/radio_rx")
-        
+
         # Wait for applications to initialize
         logging.info("Waiting for applications to initialize...")
         time.sleep(2)
-        
+
         # Collect output from RX board for 10 seconds
         start_time = time.time()
         test_duration = 10
         rx_output = []
-        
+
         logging.info(f"Collecting received packets for {test_duration} seconds...")
-        
+
         while time.time() - start_time < test_duration:
             try:
-                line = board_rx.serial.expect(r'.+', timeout=0.5, timeout_error=False)
+                line = board_rx.serial.expect(r".+", timeout=0.5, timeout_error=False)
                 if line:
-                    line_str = line.decode('utf-8', errors='replace') if isinstance(line, bytes) else str(line)
+                    line_str = (
+                        line.decode("utf-8", errors="replace")
+                        if isinstance(line, bytes)
+                        else str(line)
+                    )
                     rx_output.append(line_str)
                     logging.debug(f"RX output: {line_str.strip()}")
             except Exception as e:
                 logging.debug(f"Exception during expect: {e}")
                 continue
-                
+
         # Join all output into a single string to handle fragmented serial data
-        full_output = ''.join(rx_output)
-        
+        full_output = "".join(rx_output)
+
         # Count complete packet patterns in the joined output
         success_count = 0
         EXPECTED_PACKETS = 40  # Based on 250ms TX interval over 10s
-        
+
         # Look for the complete packet pattern as a single block
         packet_pattern = (
             "Received packet with payload of 60 bytes from offset 12\n"
@@ -73,12 +77,13 @@ class RadioRxTest(TestHarness):
             "Packet source PAN ID: 0xabcd\n"
             "Packet source address: 0x1540"
         )
-        
+
         # Also check for pattern without newlines (in case output is concatenated)
-        packet_pattern_no_newlines = packet_pattern.replace('\n', '')
-        
+        packet_pattern_no_newlines = packet_pattern.replace("\n", "")
+
         # Count occurrences of the complete packet pattern
         import re
+
         # Use regex to find the pattern with flexible whitespace
         pattern_regex = re.compile(
             r"Received packet with payload of 60 bytes from offset 12\s+"
@@ -91,15 +96,19 @@ class RadioRxTest(TestHarness):
             r"Packet source PAN ID: 0xabcd\s+"
             r"Packet source address: 0x1540"
         )
-        
+
         success_count = len(pattern_regex.findall(full_output))
-                
+
         success_rate = success_count / EXPECTED_PACKETS if EXPECTED_PACKETS > 0 else 0
-        
+
         # Check if 80% of packets were received successfully (allowing for some loss)
-        assert success_rate >= 0.80, f"Radio RX test failed: only {success_count}/{EXPECTED_PACKETS} packets received ({success_rate:.1%})"
-        
-        print(f"Radio RX test passed: {success_count}/{EXPECTED_PACKETS} packets received successfully")
+        assert (
+            success_rate >= 0.80
+        ), f"Radio RX test failed: only {success_count}/{EXPECTED_PACKETS} packets received ({success_rate:.1%})"
+
+        print(
+            f"Radio RX test passed: {success_count}/{EXPECTED_PACKETS} packets received successfully"
+        )
 
 
 test = RadioRxTest()
