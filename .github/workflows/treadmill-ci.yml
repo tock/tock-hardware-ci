@@ -177,7 +177,7 @@ jobs:
           TML_JOB_IDS_OUTPUT="[ \"$TML_JOB_ID\" ]"
           echo "Setting tml-job-ids output to ${TML_JOB_IDS_OUTPUT}"
           echo "tml-job-ids=${TML_JOB_IDS_OUTPUT}" >> "$GITHUB_OUTPUT"
-          TML_JOBS_OUTPUT="{ \"$TML_JOB_ID\": { \"runner-id\": \"$RUNNER_ID\", \"tests\": $TESTS_JSON } }"
+          TML_JOBS_OUTPUT="{ \"$TML_JOB_ID\": { \"runner-id\": \"$RUNNER_ID\", \"tests\": $(echo "$TESTS_JSON" | jq -c '.') } }"
           echo "Setting tml-jobs output to ${TML_JOBS_OUTPUT}"
           echo "tml-jobs=${TML_JOBS_OUTPUT}" >> "$GITHUB_OUTPUT"
 
