@@ -20,7 +20,7 @@ jobs:
       repository-filter: 'tock/tock-hardware-ci'
       
       # Use default environment for secrets
-      job-environment: 'ubuntu-latest'
+      job-environment: 'treadmill-ci-merged'
       
       # Use the current branch for tock-hardware-ci
       tock-hardware-ci-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}

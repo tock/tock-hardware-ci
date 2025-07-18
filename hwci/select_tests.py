@@ -37,11 +37,18 @@ def main():
     # Path to the tests directory within the tock-hardware-ci repository
     tests_dir = os.path.join(args.hwci_path, "tests")
 
+    # Tests that require multiple boards and should be ignored
+    multi_board_tests = [
+        "ieee802154_radio_rx.py",
+        "ieee802154_radio_tx_raw.py",
+        "openthread_hello.py"
+    ]
+
     # Find all .py files in the tests directory
     test_files = []
     for root, dirs, files in os.walk(tests_dir):
         for file in files:
-            if file.endswith(".py"):
+            if file.endswith(".py") and file not in multi_board_tests:
                 # Get the relative path to the test file
                 test_path = os.path.relpath(os.path.join(root, file), args.hwci_path)
                 test_files.append(test_path)
