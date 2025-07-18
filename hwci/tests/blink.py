@@ -15,7 +15,7 @@ class BlinkTest(OneshotTest):
     def oneshot_test(self, board):
         gpio = board.gpio
 
-        # Map the LEDs according to target_spec.yaml
+        # Map the LEDs
         led_pins = {
             "LED1": gpio.pin("P0.13"),
             "LED2": gpio.pin("P0.14"),
