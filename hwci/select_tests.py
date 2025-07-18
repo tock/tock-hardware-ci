@@ -41,7 +41,7 @@ def main():
     multi_board_tests = [
         "ieee802154_radio_rx.py",
         "ieee802154_radio_tx_raw.py",
-        "openthread_hello.py"
+        "openthread_hello.py",
     ]
 
     # Find all .py files in the tests directory
