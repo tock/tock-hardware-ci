@@ -18,7 +18,9 @@ from core.test_harness import TestHarness
 class OpenThreadHelloTest(TestHarness):
     # Board requirements
     BOARD_REQUIREMENTS = {
-        0: {"kernel_config": "standard"},  # Router board - will be erased and flashed with Nordic firmware
+        0: {
+            "kernel_config": "standard"
+        },  # Router board - will be erased and flashed with Nordic firmware
         1: {"kernel_config": "thread"},  # Tock MTD board needs thread kernel
     }
 
@@ -47,31 +49,41 @@ class OpenThreadHelloTest(TestHarness):
                 # Use tockloader with OpenOCD to flash the router firmware
                 # First completely erase the chip (removes any Tock kernel)
                 router_board.erase_board()
-                
+
                 # Convert hex to bin for tockloader
-                with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as tmp_bin:
+                with tempfile.NamedTemporaryFile(
+                    suffix=".bin", delete=False
+                ) as tmp_bin:
                     # Use objcopy to convert hex to bin
                     objcopy_cmd = [
                         "arm-none-eabi-objcopy",
-                        "-I", "ihex",
-                        "-O", "binary",
+                        "-I",
+                        "ihex",
+                        "-O",
+                        "binary",
                         router_firmware_path,
-                        tmp_bin.name
+                        tmp_bin.name,
                     ]
                     subprocess.run(objcopy_cmd, check=True)
-                    
+
                     # Use tockloader to flash the binary
                     tockloader_cmd = [
                         "tockloader",
                         "flash",
-                        "--openocd-serial-number", router_board.serial_number,
+                        "--openocd-serial-number",
+                        router_board.serial_number,
                         "--openocd",
-                        "--openocd-board", "nordic_nrf52_dk.cfg",
-                        "--address", "0x00000",
-                        "--board", "nrf52dk",
-                        tmp_bin.name
+                        "--openocd-board",
+                        "nordic_nrf52_dk.cfg",
+                        "--address",
+                        "0x00000",
+                        "--board",
+                        "nrf52dk",
+                        tmp_bin.name,
                     ]
-                    result = subprocess.run(tockloader_cmd, capture_output=True, text=True, check=True)
+                    result = subprocess.run(
+                        tockloader_cmd, capture_output=True, text=True, check=True
+                    )
                     os.unlink(tmp_bin.name)
                 print(
                     f"Router firmware flashed successfully to board {router_board.serial_number}"
@@ -121,17 +133,17 @@ class OpenThreadHelloTest(TestHarness):
             except Exception as e:
                 logging.debug(f"Exception during expect: {e}")
                 continue
-        
+
         # Join all output into a single string to handle fragmented serial data
-        full_output = ''.join(output_buffer)
-        
+        full_output = "".join(output_buffer)
+
         # Check for successful attachment
         attached = "Successfully attached to Thread network as a child." in full_output
-        
+
         # Also check for state changes
         if "[State Change] - Child." in full_output:
             logging.info("Device transitioned to Child state")
-        
+
         # Log debug info
         if full_output:
             logging.debug(f"Full OpenThread output length: {len(full_output)} chars")
