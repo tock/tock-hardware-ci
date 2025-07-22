@@ -40,7 +40,7 @@ class OpenThreadHelloTest(TestHarness):
         # Note: This requires the ot-central-controller.hex file to be available
         print(f"Checking for Thread router firmware...")
 
-        # First, check if router firmware file exists
+        # check if router firmware file exists
         router_firmware_path = "ot-central-controller.hex"
 
         if os.path.exists(router_firmware_path):
