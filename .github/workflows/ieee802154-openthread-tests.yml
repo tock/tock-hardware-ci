@@ -1,53 +1,50 @@
 # Licensed under the Apache License, Version 2.0 or the MIT License.
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 # Copyright Tock Contributors 2025.
-#
-# TODO to be uncommented out when the cluster board supervisor is back to an operational status
-#
-# name: IEEE 802.15.4 and OpenThread Tests
-# on:
-#   pull_request:
-#   push:
-#     branches:
-#       - main
-#       - staging/*
-#   workflow_dispatch:
-# jobs:
-#   run-ieee802154-openthread-tests:
-#     if: github.event_name != 'pull_request'
-#     uses: ./.github/workflows/treadmill-ci.yml
-#     with:
-#       # Filter to ensure we only run on the correct repository
-#       repository-filter: 'tock/tock-hardware-ci'
-#       # Use default environment for secrets
-#       job-environment: 'treadmill-ci-merged'
-#       # Use the current branch for tock-hardware-ci
-#       tock-hardware-ci-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-#       # Use main branch for tock kernel and libtock-c
-#       tock-kernel-ref: 'main'
-#       libtock-c-ref: 'main'
-#       # Multi-board configuration - target specific supervisor with 4 nRF52840dk boards
-#       multi-board: true
-#       supervisor-id: 'fb1384d5-e1a5-469c-beb4-0d4d215c9793'
-#       # Specify all 4 board descriptors for the multi-board tests
-#       # Single board test will only use the first one
-#       board-descriptors: >-
-#         board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050202501.yml board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050244773.yml board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050289195.yml board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050292283.yml
-#       # Specify the IEEE 802.15.4 and OpenThread tests
-#       tests-json: |
-#         [
-#           "tests/ieee802154_radio_tx.py",
-#           "tests/ieee802154_radio_rx.py",
-#           "tests/ieee802154_radio_tx_raw.py",
-#           "tests/openthread_hello.py"
-#         ]
-#     secrets: inherit
-#   # Consolidate results into a single check
-#   ieee802154-openthread-tests-success:
-#     needs: [run-ieee802154-openthread-tests]
-#     if: always()
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Fail if any tests failed
-#         if: contains(needs.*.result, 'failure')
-#         run: exit 1
+name: IEEE 802.15.4 and OpenThread Tests
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - staging/*
+  workflow_dispatch:
+jobs:
+  run-ieee802154-openthread-tests:
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/treadmill-ci.yml
+    with:
+      # Filter to ensure we only run on the correct repository
+      repository-filter: 'tock/tock-hardware-ci'
+      # Use default environment for secrets
+      job-environment: 'treadmill-ci-merged'
+      # Use the current branch for tock-hardware-ci
+      tock-hardware-ci-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      # Use main branch for tock kernel and libtock-c
+      tock-kernel-ref: 'main'
+      libtock-c-ref: 'main'
+      # Multi-board configuration - target specific supervisor with 4 nRF52840dk boards
+      multi-board: true
+      supervisor-id: 'fb1384d5-e1a5-469c-beb4-0d4d215c9793'
+      # Specify all 4 board descriptors for the multi-board tests
+      # Single board test will only use the first one
+      board-descriptors: >-
+        board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050202501.yml board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050244773.yml board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050289195.yml board_descriptors/fb1384d5-e1a5-469c-beb4-0d4d215c9793/board-nrf52840dk-001050292283.yml
+      # Specify the IEEE 802.15.4 and OpenThread tests
+      tests-json: |
+        [
+          "tests/ieee802154_radio_tx.py",
+          "tests/ieee802154_radio_rx.py",
+          "tests/ieee802154_radio_tx_raw.py",
+          "tests/openthread_hello.py"
+        ]
+    secrets: inherit
+  # Consolidate results into a single check
+  ieee802154-openthread-tests-success:
+    needs: [run-ieee802154-openthread-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any tests failed
+        if: contains(needs.*.result, 'failure')
+        run: exit 1
