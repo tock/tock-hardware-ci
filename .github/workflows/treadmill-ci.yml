@@ -277,6 +277,9 @@ jobs:
           while read TEST; do
           # WHILE ---------->
 
+          # Open a new "group" in the GitHub actions output for this test:
+          echo "::group::Test ${TEST}"
+
           # For markdown links, we want a sanitized test name without special characters
           SANITIZED_TEST_NAME="${TEST//[^[:alnum:]]/_}"
 
@@ -319,6 +322,9 @@ jobs:
           </details>
 
           STEP_SUMMARY_DETAILS
+
+          # Close the "group" in the GitHub actions output:
+          echo "::endgroup::"
 
           # -----------> DONE
           done < <(echo "$JSON_TEST_ARRAY" | jq -r -c '.[]')
