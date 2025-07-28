@@ -264,7 +264,7 @@ jobs:
           cd ./hwci
           source ./.venv/bin/activate
 
-          STEP_FAIL=0
+          FAILED_TESTS=""
 
           # Generate a summary of all the tests executed:
           cat <<GITHUB_STEP_SUMMARY >>"$GITHUB_STEP_SUMMARY"
@@ -276,6 +276,9 @@ jobs:
 
           while read TEST; do
           # WHILE ---------->
+
+          # Open a new "group" in the GitHub actions output for this test:
+          echo "::group::Test ${TEST}"
 
           # For markdown links, we want a sanitized test name without special characters
           SANITIZED_TEST_NAME="${TEST//[^[:alnum:]]/_}"
@@ -302,7 +305,11 @@ jobs:
           else
             echo "===== Test $TEST failed! ====="
             echo "| ❌ | \`$TEST\` ([Output](#test-$SANITIZED_TEST_NAME)) |" >>"$GITHUB_STEP_SUMMARY"
-            STEP_FAIL=1
+
+            # Append this test to the list of failed tests (prefixing
+            # it with a comma, if other tests have already failed:
+            test -n "${FAILED_TESTS}" && FAILED_TESTS="${FAILED_TESTS}, "
+            FAILED_TESTS="${FAILED_TESTS}${TEST}"
           fi
 
           # Sanitize the output (remove triple backslashes) and copy it into the step summary details:
@@ -316,6 +323,9 @@ jobs:
 
           STEP_SUMMARY_DETAILS
 
+          # Close the "group" in the GitHub actions output:
+          echo "::endgroup::"
+
           # -----------> DONE
           done < <(echo "$JSON_TEST_ARRAY" | jq -r -c '.[]')
 
@@ -324,8 +334,8 @@ jobs:
           cat "./step-summary-details.txt" >>"$GITHUB_STEP_SUMMARY"
 
           # Exit with an error if at least one test failed:
-          if [ "$STEP_FAIL" != "0" ]; then
-            echo "At least one test failed, exiting with error."
+          if [ "$FAILED_TESTS" != "" ]; then
+            echo "One or more tests failed, exiting with error: $FAILED_TESTS"
             exit 1
           fi
 
