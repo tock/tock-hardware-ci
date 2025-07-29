@@ -1,7 +1,6 @@
 # Licensed under the Apache License, Version 2.0 or the MIT License.
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 # Copyright Tock Contributors 2024.
-
 # This workflow contains all Treadmill-based hardware CI jobs.
 #
 # Treadmill is a distributed hardware testbed developed within the Tock OS
@@ -17,12 +16,9 @@
 # [2]: https://github.com/treadmill-tb/treadmill
 # [3]: https://book.treadmill.ci/user-guide/github-actions-integration.html
 #
-
 name: treadmill-ci
-
 env:
   TERM: xterm # Makes tput work in actions output
-
 on:
   workflow_call:
     inputs:
@@ -45,23 +41,30 @@ on:
         required: false
         type: string
         default: '["tests/c_hello.py"]' # Default to single test for backward compatibility
-
+      # New inputs for multi-board tests
+      multi-board:
+        required: false
+        type: string
+        default: 'false'
+      supervisor-id:
+        required: false
+        type: string
+        default: ''
+      board-descriptors:
+        required: false
+        type: string
+        default: ''
 jobs:
   test-prepare:
     runs-on: ubuntu-latest
-
     # Do not run job on forks, as they will not have the correct environment set up
     if: github.repository == inputs.repository-filter
-
     environment: ${{ inputs.job-environment }}
-
     outputs:
       tml-job-ids: ${{ steps.treadmill-job-launch.outputs.tml-job-ids }}
       tml-jobs: ${{ steps.treadmill-job-launch.outputs.tml-jobs }}
-
     steps:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-
       - name: Checkout Treadmill repository
         uses: actions/checkout@v4
         with:
@@ -69,37 +72,31 @@ jobs:
           # treadmill-tb/treadmill main as of Oct 1, 2024, 3:05 PM EDT
           ref: 'c82f4d7ebddd17f8275ba52139e64e04623f30cb'
           path: treadmill
-
       - name: Cache Treadmill CLI compilation artifacts
         id: cache-tml-cli
         uses: actions/cache@v4
         with:
           path: treadmill/target
           key: ${{ runner.os }}-tml-cli
-
       - name: Compile the Treadmill CLI binary
         run: |
           pushd treadmill
           cargo build --package tml-cli
           popd
           echo "$PWD/treadmill/target/debug" >> "$GITHUB_PATH"
-
       - name: Generate a token to register new just-in-time runners
         id: generate-token
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ vars.TREADMILL_GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.TREADMILL_GH_APP_PRIVATE_KEY }}
-
       - name: Create GitHub just-in-time runners and enqueue Treadmill jobs
         id: treadmill-job-launch
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           TML_API_TOKEN: ${{ secrets.TREADMILL_API_TOKEN }}
-
           # Currently, all tests run only on hosts attached to an nRF52840DK
           DUT_BOARD: nrf52840dk
-
           # A Raspberry Pi OS netboot (NBD) image with a GitHub Actions
           # self-hosted runner pre-configured.
           #
@@ -113,8 +110,10 @@ jobs:
           # identically:
           HOST_TYPE: nbd-netboot
           HOST_ARCH: arm64
-
           TESTS_JSON: ${{ inputs.tests-json }}
+          # Support for specific supervisor targeting for multi-board tests
+          MULTI_BOARD: ${{ inputs.multi-board }}
+          SUPERVISOR_ID: ${{ inputs.supervisor-id }}
         run: |
           # When we eventually launch tests on multiple hardware platforms in
           # parallel, we need to supply different SUB_TEST_IDs here:
@@ -152,13 +151,46 @@ jobs:
           }"
 
           echo "Enqueueing treadmill job:"
-          TML_JOB_ID_JSON="$(tml job enqueue \
-            "$IMAGE_ID" \
-            --tag-config "board:$DUT_BOARD;host-type:$HOST_TYPE;host-arch:$HOST_ARCH" \
-            --parameters "$TML_JOB_PARAMETERS" \
-          )"
+
+          # If this is a multi-board test targeting a specific supervisor
+          if [ "$MULTI_BOARD" = "true" ] && [ -n "$SUPERVISOR_ID" ]; then
+            echo "Attempting to enqueue multi-board job on supervisor: $SUPERVISOR_ID"
+            # For supervisor-specific jobs, only use the supervisor tag
+            TML_JOB_ID_JSON="$(tml job enqueue \
+              "$IMAGE_ID" \
+              --tag-config "supervisor:$SUPERVISOR_ID" \
+              --parameters "$TML_JOB_PARAMETERS" \
+            )" || {
+              echo "ERROR: Failed to enqueue job. The supervisor $SUPERVISOR_ID may not be available or properly configured."
+              echo "Response: $TML_JOB_ID_JSON"
+              exit 1
+            }
+          else
+            # Default job enqueue for single board tests
+            TML_JOB_ID_JSON="$(tml job enqueue \
+              "$IMAGE_ID" \
+              --tag-config "board:$DUT_BOARD;host-type:$HOST_TYPE;host-arch:$HOST_ARCH" \
+              --parameters "$TML_JOB_PARAMETERS" \
+            )" || {
+              echo "ERROR: Failed to enqueue job."
+              echo "Response: $TML_JOB_ID_JSON"
+              exit 1
+            }
+          fi
+
+          # Check if we got valid JSON response
+          if ! echo "$TML_JOB_ID_JSON" | jq -e . >/dev/null 2>&1; then
+            echo "ERROR: Invalid JSON response from tml job enqueue"
+            echo "Response: $TML_JOB_ID_JSON"
+            exit 1
+          fi
 
           TML_JOB_ID="$(echo "$TML_JOB_ID_JSON" | jq -r .job_id)"
+          if [ "$TML_JOB_ID" = "null" ] || [ -z "$TML_JOB_ID" ]; then
+            echo "ERROR: Failed to get job_id from response"
+            echo "Response: $TML_JOB_ID_JSON"
+            exit 1
+          fi
           echo "Enqueued Treadmill job with ID $TML_JOB_ID"
 
 
@@ -168,7 +200,7 @@ jobs:
           TML_JOB_IDS_OUTPUT="[ \"$TML_JOB_ID\" ]"
           echo "Setting tml-job-ids output to ${TML_JOB_IDS_OUTPUT}"
           echo "tml-job-ids=${TML_JOB_IDS_OUTPUT}" >> "$GITHUB_OUTPUT"
-          TML_JOBS_OUTPUT="{ \"$TML_JOB_ID\": { \"runner-id\": \"$RUNNER_ID\", \"tests\": $TESTS_JSON } }"
+          TML_JOBS_OUTPUT="{ \"$TML_JOB_ID\": { \"runner-id\": \"$RUNNER_ID\", \"tests\": $(echo "$TESTS_JSON" | jq -c '.') } }"
           echo "Setting tml-jobs output to ${TML_JOBS_OUTPUT}"
           echo "tml-jobs=${TML_JOBS_OUTPUT}" >> "$GITHUB_OUTPUT"
 
@@ -179,9 +211,12 @@ jobs:
           |------|-------|-----|
           GITHUB_STEP_SUMMARY
           echo "$TESTS_JSON" | jq -r -c '.[]' | while read TEST; do
-            echo "| \`$TEST\` | \`$DUT_BOARD\` | [\`$TML_JOB_ID\`](#tml-job-summary-$TML_JOB_ID) |" >>"$GITHUB_STEP_SUMMARY"
+            BOARD_INFO="$DUT_BOARD"
+            if [ "$MULTI_BOARD" = "true" ]; then
+              BOARD_INFO="Multiple boards on supervisor $SUPERVISOR_ID"
+            fi
+            echo "| \`$TEST\` | \`$BOARD_INFO\` | [\`$TML_JOB_ID\`](#tml-job-summary-$TML_JOB_ID) |" >>"$GITHUB_STEP_SUMMARY"
           done
-
   test-execute:
     needs: test-prepare
     strategy:
@@ -192,7 +227,7 @@ jobs:
       - name: Print Treadmill Job Context and Debug Information
         run: |
           echo "Treadmill job id: ${{ matrix.tml-job-id }}"
-          echo "GitHub Actions Runner ID: ${{ fromJSON(needs.test-prepare.outputs.tml-jobs)[matrix.tml-job-id] }}"
+          echo "GitHub Actions Runner ID: ${{ fromJSON(needs.test-prepare.outputs.tml-jobs)[matrix.tml-job-id].runner-id }}"
           echo "Host ID: $(cat /run/tml/host-id)"
           echo "===== Parameters: ====="
           ls /run/tml/parameters
@@ -207,16 +242,13 @@ jobs:
           ls -lh /dev/ttyACM* 2>/dev/null || true
           ls -lh /dev/ttyUSB* 2>/dev/null || true
           ls -lh /dev/bus/usb/*/* 2>/dev/null || true
-
       - name: Disable wget progress output
         run: |
           echo "verbose = off" >> $HOME/.wgetrc
-
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           # Avoid overwriting the RUSTFLAGS environment variable
           rustflags: ''
-
       # This is required for the actions/checkout steps to perform a
       # proper git clone that also supports checking out submodules:
       - name: Install git
@@ -228,20 +260,17 @@ jobs:
           # part out.
           sudo DEBIAN_FRONTEND=noninteractive apt update || true
           sudo DEBIAN_FRONTEND=noninteractive apt install -y git
-
       - name: Checkout the Tock Hardware CI scripts
         uses: actions/checkout@v4
         with:
           repository: tock/tock-hardware-ci
           ref: ${{ inputs.tock-hardware-ci-ref }}
-
       - name: Checkout the Tock kernel repository
         uses: actions/checkout@v4
         with:
           path: hwci/repos/tock
           repository: tock/tock
           ref: ${{ inputs.tock-kernel-ref }}
-
       - name: Checkout the libtock-c repository
         uses: actions/checkout@v4
         with:
@@ -251,24 +280,25 @@ jobs:
           fetch-depth: 0
           submodules: false
           persist-credentials: true
-
       - name: Run setup script
         run: |
           cd ./hwci/
           ./setup.sh
-
       - name: Run tests
         env:
           JSON_TEST_ARRAY: ${{ toJSON(fromJSON(needs.test-prepare.outputs.tml-jobs)[matrix.tml-job-id].tests) }}
+          MULTI_BOARD: ${{ inputs.multi-board }}
+          SUPERVISOR_ID: ${{ inputs.supervisor-id }}
+          BOARD_DESCRIPTORS: ${{ inputs.board-descriptors }}
         run: |
-          cd ./hwci
-          source ./.venv/bin/activate
+          # Activate the virtual environment from the hwci directory
+          source ./hwci/.venv/bin/activate
 
           FAILED_TESTS=""
 
           # Generate a summary of all the tests executed:
           cat <<GITHUB_STEP_SUMMARY >>"$GITHUB_STEP_SUMMARY"
-          ### <a id="tml-job-summary-${{ matrix.tml-job-id }}"></a>Tests executed on board \`nrf52840dk\`, job ID ${{ matrix.tml-job-id }}
+          ### <a id="tml-job-summary-${{ matrix.tml-job-id }}"></a>Tests executed on job ID ${{ matrix.tml-job-id }}
 
           | Result | Test |
           |--------|------|
@@ -296,7 +326,105 @@ jobs:
           echo "===== RUNNING TEST $TEST ====="
           FAIL=0
           set -o pipefail
-          python3 core/main.py --board boards/nrf52dk.py --test "$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+
+          # Check if this is a multi-board test with specific board descriptors
+          if [ "$MULTI_BOARD" = "true" ] && [ -n "$BOARD_DESCRIPTORS" ]; then
+            echo "Running multi-board test with specified board descriptors"
+            BOARD_DESC_ARGS="--board-descriptors"
+            for DESC in $BOARD_DESCRIPTORS; do
+              BOARD_DESC_ARGS+=" $DESC"
+            done
+
+            echo "Running from directory: $(pwd)"
+            echo "Command: python3 hwci/core/main.py $BOARD_DESC_ARGS --test hwci/$TEST"
+
+            # Run test with multiple board descriptors
+            python3 hwci/core/main.py $BOARD_DESC_ARGS --test "hwci/$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+
+          else
+            # For single-board test
+            echo "Running single-board test"
+            
+            # Try to determine which supervisor we're running on from the Host ID file
+            HOST_ID=$(cat /run/tml/host-id 2>/dev/null || echo "")
+            if [ -n "$HOST_ID" ]; then
+              echo "Running on host/supervisor: $HOST_ID"
+            fi
+            
+            # Look for board descriptor based on runtime host ID or provided supervisor ID
+            BOARD_DESC_FILE=""
+            
+            # First priority: Use the host ID we're actually running on
+            if [ -n "$HOST_ID" ] && [ -d "board_descriptors/$HOST_ID" ]; then
+              echo "Looking for board descriptor in supervisor directory: board_descriptors/$HOST_ID/"
+              # Find first board descriptor YAML in the supervisor's directory
+              BOARD_DESC_FILE=$(find "board_descriptors/$HOST_ID" -name "board-*.yml" -type f | head -n 1)
+              
+              if [ -n "$BOARD_DESC_FILE" ]; then
+                echo "Found board descriptor for current supervisor: $BOARD_DESC_FILE"
+              else
+                echo "WARNING: Supervisor directory exists but no board descriptor found"
+              fi
+            fi
+            
+            # Second priority: If SUPERVISOR_ID was provided as input but we didn't find descriptor yet
+            if [ -z "$BOARD_DESC_FILE" ] && [ -n "$SUPERVISOR_ID" ]; then
+              echo "Checking provided SUPERVISOR_ID: $SUPERVISOR_ID"
+              # Check if it's a full file path
+              if [ -f "$SUPERVISOR_ID" ]; then
+                BOARD_DESC_FILE="$SUPERVISOR_ID"
+                echo "Using provided board descriptor path: $BOARD_DESC_FILE"
+              elif [ -d "board_descriptors/$SUPERVISOR_ID" ]; then
+                # It's just the UUID, look for first board descriptor in that directory
+                BOARD_DESC_FILE=$(find "board_descriptors/$SUPERVISOR_ID" -name "board-*.yml" -type f | head -n 1)
+                if [ -n "$BOARD_DESC_FILE" ]; then
+                  echo "Found board descriptor in provided supervisor directory: $BOARD_DESC_FILE"
+                fi
+              fi
+            fi
+            
+            # Third priority: Fall back to any available board descriptor
+            if [ -z "$BOARD_DESC_FILE" ] || [ ! -f "$BOARD_DESC_FILE" ]; then
+              echo "WARNING: Could not find supervisor-specific board descriptor"
+              echo "Looking for any available nrf52840dk board descriptor..."
+              BOARD_DESC_FILE=$(find board_descriptors -name "board-nrf52840dk-*.yml" -type f | head -n 1)
+              
+              if [ -n "$BOARD_DESC_FILE" ]; then
+                echo "Using fallback board descriptor: $BOARD_DESC_FILE"
+              fi
+            fi
+            
+            # Last resort: Create a minimal board descriptor
+            if [ -z "$BOARD_DESC_FILE" ] || [ ! -f "$BOARD_DESC_FILE" ]; then
+              echo "WARNING: No board descriptor found, creating minimal temporary descriptor"
+              echo "Note: GPIO tests will not work without proper pin_mappings"
+              
+              TEMP_DESC_DIR="./temp_board_descriptors"
+              mkdir -p "$TEMP_DESC_DIR"
+              BOARD_DESC_FILE="$TEMP_DESC_DIR/board-nrf52840dk-default.yml"
+              
+              echo "model: nrf52840dk" > "$BOARD_DESC_FILE"
+              echo "serial_number: ''" >> "$BOARD_DESC_FILE"
+              echo "board_module: hwci/boards/nrf52dk.py" >> "$BOARD_DESC_FILE"
+              echo "features:" >> "$BOARD_DESC_FILE"
+              echo "  ble: true" >> "$BOARD_DESC_FILE"
+              echo "  debugger: jlink" >> "$BOARD_DESC_FILE"
+              echo "  gpio: false" >> "$BOARD_DESC_FILE"
+            fi
+
+            echo "Using board descriptor: $BOARD_DESC_FILE"
+            echo "Running from directory: $(pwd)"
+            echo "Command: python3 hwci/core/main.py --board-descriptors $BOARD_DESC_FILE --test hwci/$TEST"
+            
+            # Run test with board descriptor
+            python3 hwci/core/main.py --board-descriptors "$BOARD_DESC_FILE" --test "hwci/$TEST" 2>&1 | tee ./job-output.txt || FAIL=1
+            
+            # Clean up temporary descriptor if we created one
+            if [ -d "./temp_board_descriptors" ]; then
+              rm -rf "./temp_board_descriptors"
+            fi
+          fi
+
           set +o pipefail
 
           # Insert the result into the markdown table:
@@ -338,11 +466,9 @@ jobs:
             echo "One or more tests failed, exiting with error: $FAILED_TESTS"
             exit 1
           fi
-
       - name: Request shutdown after successful job completion
         run: |
           sudo touch /run/github-actions-shutdown
-
       - name: Provide connection information on job failure
         if: failure()
         run: |

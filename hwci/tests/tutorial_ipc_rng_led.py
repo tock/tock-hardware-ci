@@ -6,31 +6,34 @@ import time
 import re
 from utils.test_helpers import OneshotTest
 
+
 class TutorialIpcLedRngTest(OneshotTest):
     def __init__(self):
-        super().__init__(apps=[
-            {
-                "name": "led",
-                "path": "tutorials/05_ipc/led",
-                "tab_file": "build/org.tockos.tutorials.ipc.led.tab",
-            },
-            {
-                "name": "rng",
-                "path": "tutorials/05_ipc/rng",
-                "tab_file": "build/org.tockos.tutorials.ipc.rng.tab",
-            },
-            {
-                "name": "logic",
-                "path": "tutorials/05_ipc/logic",
-                "tab_file": "build/org.tockos.tutorials.ipc.logic.tab",
-            },
-        ])
+        super().__init__(
+            apps=[
+                {
+                    "name": "led",
+                    "path": "tutorials/05_ipc/led",
+                    "tab_file": "build/org.tockos.tutorials.ipc.led.tab",
+                },
+                {
+                    "name": "rng",
+                    "path": "tutorials/05_ipc/rng",
+                    "tab_file": "build/org.tockos.tutorials.ipc.rng.tab",
+                },
+                {
+                    "name": "logic",
+                    "path": "tutorials/05_ipc/logic",
+                    "tab_file": "build/org.tockos.tutorials.ipc.logic.tab",
+                },
+            ]
+        )
 
     def oneshot_test(self, board):
         gpio = board.gpio
         serial = board.serial
 
-        # Map the LEDs according to target_spec.yaml
+        # Map the LEDs according to the board_descriptor pin mappings
         led_pins = {
             "LED1": gpio.pin("P0.13"),
             "LED2": gpio.pin("P0.14"),
@@ -42,10 +45,7 @@ class TutorialIpcLedRngTest(OneshotTest):
 
         # Since the LEDs are active low, when the pin is low, the LED is on
         logging.info("Starting IPC tutorial (LED + RNG) test")
-        toggle_counts = {
-            led: 0
-            for led in led_pins.keys()
-        }
+        toggle_counts = {led: 0 for led in led_pins.keys()}
         previous_states = {}
         for _ in range(120):
             current_states = {}

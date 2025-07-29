@@ -1,6 +1,10 @@
 model: nrf52840dk
-hw_rev: '3.2'
-serial_number: 0xfoobar
+serial_number: '000683931878'
+board_module: hwci/boards/nrf52dk.py
+features:
+  ble: true
+  debugger: jlink
+  gpio: true
 pin_mappings:
   P0.13:
     io_interface: raspberrypi5gpio

@@ -18,7 +18,7 @@ class GpioOriginalTest(OneshotTest):
         try:
             gpio_pin = gpio.pin(gpio_pin_label)
         except ValueError as e:
-            logging.error(f"GPIO pin {gpio_pin_label} not found in target_spec.yaml")
+            logging.error(f"GPIO pin {gpio_pin_label} not found in pin mapping")
             raise e
 
         # Configure GPIO pin as input to read its state
