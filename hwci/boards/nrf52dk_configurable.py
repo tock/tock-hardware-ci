@@ -47,6 +47,15 @@ class Nrf52dkConfigurable(Nrf52dk):
                 "nrf52840dk-test-kernel",
             )
             self.kernel_binary_name = "nrf52840dk-test-kernel.bin"
+        elif self.kernel_config == "kernel-test":
+            # Use our new kernel test framework configuration
+            self.kernel_board_path = os.path.join(
+                self.kernel_path,
+                "boards",
+                "kernel-test",
+                "nrf52840dk",
+            )
+            self.kernel_binary_name = "nrf52840dk-kernel-test.bin"
         else:
             # Use standard configuration (default)
             self.kernel_board_path = os.path.join(
@@ -64,6 +73,7 @@ class Nrf52dkConfigurable(Nrf52dk):
         kernel_type_map = {
             "thread": "Thread Tutorial",
             "test": "Test",
+            "kernel-test": "Kernel Test Framework",
             "standard": "Standard",
         }
         kernel_type = kernel_type_map.get(self.kernel_config, "Standard")
