@@ -40,9 +40,10 @@ class KernelMpuTest(KernelTestHarness):
         
         # Monitor individual test results
         timeout = 60
-        start_time = board.serial.timeout_start()
+        import time
+        start_time = time.time()
         
-        while board.serial.elapsed_time(start_time) < timeout:
+        while time.time() - start_time < timeout:
             try:
                 line = board.serial.readline(timeout=1)
                 
