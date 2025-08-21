@@ -16,18 +16,22 @@ class ConsoleTimeoutTest(OneshotTest):
 
         # Wait for the application to initialize
         logging.info("Waiting for the application to initialize...")
-        time.sleep(2)  # Allow time for the app to start
+        time.sleep(1)  # Allow time for the app to start
 
         # Simulate user input by writing to the serial port
-        test_input = b"Hello, Tock!"
-        serial.write(test_input)
+        serial.flush_buffer()
+        test_input = b"Hello, Tock!\r\n"
+        for b in test_input:
+            time.sleep(0.01) # imix doesn't like this being sent too quickly!
+            serial.write(bytes([b]))
+        #serial.write(test_input)
         logging.info(f"Sent test input: {test_input.decode('utf-8')}")
-        time.sleep(7)  # Wait for the application to process
 
         # Wait for the expected output from the application
         logging.info("Waiting for the application to output the result...")
         pattern = r"Userspace call to read console returned: (.*)"
         output = serial.expect(pattern, timeout=10)
+        print(output)
 
         if output:
             received_line = output.decode("utf-8", errors="replace").strip()
