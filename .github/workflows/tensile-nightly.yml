@@ -4,7 +4,7 @@
 
 # TODO: docs
 
-name: treadmill-ci
+name: tensile-nightly-ci
 env:
   TERM: xterm # Makes tput work in actions output
 
