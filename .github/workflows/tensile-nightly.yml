@@ -4,7 +4,7 @@
 
 # TODO: docs
 
-name: treadmill-ci
+name: tensile-nightly-ci
 env:
   TERM: xterm # Makes tput work in actions output
 
@@ -67,7 +67,7 @@ jobs:
           #
           # For the available images see
           # https://book.treadmill.ci/treadmillci-deployment/images.html
-          IMAGE_ID: 1b6900eff30f37b6d012240f63aa77a22e20934e7f6ebf38e25310552dc08378
+          IMAGE_ID: 7222c531071705fcaaf2a82504c3d09c93701d8a307de266fb551294911a1181
 
           # Limit the supervisors to hosts that are compatible with this
           # image. This is a hack until we introduce "image sets" which define
