@@ -171,7 +171,10 @@ jobs:
 
       - name: Run tests
         run: |
-          echo "Hey Tyler this is where your tests go."
+          echo "Running tensile setup scripts and tests."
+          cd ./hwci/tensile
+          source ./setup.sh
+          python3 main.py
 
       - name: Request shutdown after successful job completion
         run: |
