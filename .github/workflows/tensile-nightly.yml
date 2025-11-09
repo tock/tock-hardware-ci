@@ -172,7 +172,7 @@ jobs:
       - name: Run tests
         run: |
           echo "Running tensile setup scripts and tests."
-          cd ./hwci/tensile
+          cd ./tensile
           source ./setup.sh
           python3 main.py
 
