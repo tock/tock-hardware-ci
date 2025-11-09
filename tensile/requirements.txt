@@ -1,0 +1,5 @@
+coloredlogs==15.0.1
+pynrfjprog==10.19.0
+pyserial==3.5
+sh==1.14.2
+tockloader==1.16.0

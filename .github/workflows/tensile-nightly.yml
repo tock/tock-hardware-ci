@@ -9,7 +9,12 @@ env:
   TERM: xterm # Makes tput work in actions output
 
 on:
+  # Allow manually starting the workflow:
   workflow_dispatch:
+
+  # Run nightly on the repository main branch:
+  schedule:
+  - cron: '30 2 * * *' # 2:30 AM UTC
 
 jobs:
   test-prepare:
@@ -171,7 +176,10 @@ jobs:
 
       - name: Run tests
         run: |
-          echo "Hey Tyler this is where your tests go."
+          echo "Running tensile setup scripts and tests."
+          cd ./tensile
+          source ./setup.sh
+          python3 main.py
 
       - name: Request shutdown after successful job completion
         run: |
@@ -191,3 +199,24 @@ jobs:
           echo "TODO: print host / supervisor ID as part of workflow"
           echo "TODO: determine public SSH endpoint automatically and print"
           echo "TODO: allow adding SSH keys to running Treadmill jobs"
+
+  # If any of the above steps failed or timed out, open a GitHub issue:
+  open-gh-issue:
+    needs: [test-prepare, test-execute]
+
+    if: failure()
+
+    runs-on: ubuntu-latest
+
+    steps:
+      # This step is required to be able to access the
+      # `.github/tensile_nightly_failure_issue_template.md` issue template file:
+      - name: Checkout the Tock Hardware CI repository
+        uses: actions/checkout@v4
+
+      - name: Create Issue for Failed Workflow
+        uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/tensile_nightly_failure_issue_template.md
