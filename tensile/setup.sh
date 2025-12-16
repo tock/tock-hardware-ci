@@ -37,15 +37,11 @@ source tensile-venv/bin/activate
 # Install needed python dependencies.
 pip install -r requirements.txt
 
-# NOTE: The testing scripts expect these repos to be in the same directory as main.py.
-# Clone libtock-c / tock / tockloader (need to clone tockloader from my repo temporarily 
-# until the tockloader jlink-selector branch is merged).
-
 if [ ! -f ot-central-controller.hex ]; then
   wget https://book.tockos.org/assets/temperature-sensor/ot-central-controller.hex
 fi
 
 git clone https://github.com/tock/tock.git
 git clone https://github.com/tock/libtock-c.git
-
+git clone https://github.com/tock/libtock-rs.git
 

@@ -1,5 +1,6 @@
 __pycache__
 tensile-venv
 tock
+libtock-rs
 libtock-c
 ot-central-controller.hex
