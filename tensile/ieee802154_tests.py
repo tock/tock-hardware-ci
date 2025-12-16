@@ -1,6 +1,6 @@
 from board import Board
 
-def radio_rx_test(boards, test_duration_sec=10):
+def libtock_c_radio_rx_test(boards, test_duration_sec=10):
     # We require 2 boards for this test.
     # TODO: Better handling/reporting of case w/o at least 2 boards.
     if len(boards) < 2:
@@ -58,7 +58,7 @@ def radio_rx_test(boards, test_duration_sec=10):
         raise Exception("FAILED: radio_rx test -- {} out of {} packets transmitted successfully. \
                         Dump of received packets:\n {}".format(success_passed, TOTAL_PACKETS, test_rx_results))
 
-def radio_tx_raw_test(boards, test_duration_sec=10):
+def libtock_c_radio_tx_raw_test(boards, test_duration_sec=10):
     # We require 2 boards for this test.
     # TODO: Better handling/reporting of case w/o at least 2 boards.
     if len(boards) < 2:
@@ -115,7 +115,7 @@ def radio_tx_raw_test(boards, test_duration_sec=10):
         raise Exception("FAILED: radio_tx_raw test -- {} out of {} packets transmitted successfully. Dump of \
                 received packets: \n {}".format(success_passed, TOTAL_PACKETS, test_rx_results))
 
-def radio_tx_test(boards, test_duration_sec=10):
+def libtock_c_radio_tx_test(boards, test_duration_sec=10):
     # Create board objects for each device.
     board = Board(boards[0], 
                   "tock/boards/nordic/nrf52840dk", 
@@ -142,3 +142,49 @@ def radio_tx_test(boards, test_duration_sec=10):
         board.log_info("PASSED: radio_tx test")
     else:
         raise Exception("FAILED: radio_tx test -- {} out of {} packets transmitted successfully.".format(success_passed, TOTAL_PACKETS))
+
+
+# Test libtock-rs `ieee802154_tx_raw` and `ieee802154_rx_raw` apps.
+def libtock_rs_radio_raw_test(boards, test_duration_sec=10):
+    # We require 2 boards for this test.
+    # TODO: Better handling/reporting of case w/o at least 2 boards.
+    if len(boards) < 2:
+        raise Exception("Error: [Inadequate resources] - radio_rxtx test requires at least two available boards.")
+    
+    # Create board objects for tx device.
+    board_tx = Board(boards[0], 
+                  "tock/boards/tutorials/nrf52840dk-thread-tutorial", 
+                  "libtock-rs/ieee802154_tx_raw.rs", 
+                  "ieee802154_tx_raw", 
+                  "tock/target/thumbv7em-none-eabi/release/nrf52840dk-thread-tutorial.bin")
+    
+    # Create board object for rx device.
+    board_rx = Board(boards[2], 
+                  "tock/boards/nordic/nrf52840dk", 
+                  "libtock-rs/ieee802154_rx_raw.rs", 
+                  "ieee802154_rx_raw", 
+                  "tock/target/thumbv7em-none-eabi/release/nrf52840dk-thread-tutorial.bin")
+
+    # Setup boards for test.
+    board_tx.prep_test()
+    board_rx.prep_test()
+
+    # Run tests.
+    board_tx.run_test(1)
+    test_rx_results = board_rx.run_test(test_duration_sec)
+
+    # The standard TX test transmits a packet every 1s. 
+    success_passed = 0
+    TOTAL_PACKETS = test_duration_sec 
+
+    index = 0
+    for item in test_rx_results:
+        if "Received frame with body of len 15:" in item:
+            success_passed += 1
+
+    # Check if 50% of packets were transmitted successfully.
+    if success_passed / TOTAL_PACKETS >= 0.50:
+        board_rx.log_info("PASSED: radio_rx test")
+    else:
+        raise Exception("FAILED: radio_rx test -- {} out of {} packets transmitted successfully. \
+                        Dump of received packets:\n {}".format(success_passed, TOTAL_PACKETS, test_rx_results))
