@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 # Copyright Tock Contributors 2024.
 
+import time
 import os
 import subprocess
 import logging
@@ -12,30 +13,33 @@ from utils.serial_port import SerialPort
 from gpio.gpio import GPIO
 import yaml
 import os
+import traceback
 
-
-class Nrf52dk(TockloaderBoard):
+class LiteXArty(TockloaderBoard):
     def __init__(self):
         super().__init__()
-        self.arch = "cortex-m4"
+        self.arch = "rv32imc"
+        self.tock_targets = None
         self.kernel_path = os.path.join(
             self.base_dir, "repos/tock")
         self.kernel_board_path = os.path.join(
-            self.kernel_path, "boards/nordic/nrf52840dk")
+            self.kernel_path, "boards/litex/arty")
         self.uart_port = self.get_uart_port()
         self.uart_baudrate = self.get_uart_baudrate()
-        self.program_method = "openocd"
-        self.openocd_board = "nrf52dk"
-        self.board = "nrf52dk"
+        self.board = "litex_arty"
+        self.program_method = "none"
+        self.program_args = ["--flash-file=/srv/tftp/boot.bin"]
         self.serial = self.get_serial_port()
         self.gpio = self.get_gpio_interface()
+        self.open_serial_during_flash = True
+        self.app_sha256_credential = False
 
     def get_uart_port(self):
-        logging.info("Getting list of serial ports!")
+        logging.info("Getting list of serial ports")
         ports = list(serial.tools.list_ports.comports())
         for port in ports:
-            if "J-Link" in port.description:
-                logging.info(f"Found J-Link port: {port.device}")
+            if "Digilent USB Device" in port.description:
+                logging.info(f"Found LiteX Arty UART: {port.device}")
                 return port.device
         if ports:
             logging.info(f"Automatically selected port: {ports[0].device}")
@@ -45,20 +49,16 @@ class Nrf52dk(TockloaderBoard):
             raise Exception("No serial ports found")
 
     def get_uart_baudrate(self):
-        return 115200  # Default baudrate for the board
+        return 1000000  # Default baudrate for the board
 
     def get_serial_port(self):
         logging.info(
             f"Using serial port: {self.uart_port} at baudrate {self.uart_baudrate}"
         )
-        return SerialPort(self.uart_port, self.uart_baudrate)
+        return SerialPort(self.uart_port, self.uart_baudrate, open_rts=False, open_dtr=True)
 
     def get_gpio_interface(self):
-        # Load the target spec from a YAML file
-        target_spec = load_target_spec()
-        # Initialize GPIO with the target spec
-        gpio = GPIO(target_spec)
-        return gpio
+        return None
 
     def cleanup(self):
         if self.gpio:
@@ -73,28 +73,50 @@ class Nrf52dk(TockloaderBoard):
             logging.error(f"Tock directory {self.kernel_path} not found")
             raise FileNotFoundError(f"Tock directory {self.kernel_path} not found")
 
-        # Run make flash-openocd from the board directory
+        # Run make program from the board directory
         subprocess.run(
-            ["make", "flash-openocd"], cwd=self.kernel_board_path, check=True
+            ["make"], cwd=self.kernel_board_path, check=True
         )
+        # Then, flash this kernel into the board's flash file:
+        subprocess.run(
+            [
+                "tockloader",
+                "flash",
+                "--board=litex_arty",
+                "--flash-file=/srv/tftp/boot.bin",
+                "--address=0x40000000",
+                os.path.join(self.kernel_path, "target/riscv32imc-unknown-none-elf/release/litex_arty.bin"),
+            ],
+            cwd=self.kernel_board_path,
+            check=True,
+        )
+        # Finally, reset the board:
+
 
     def erase_board(self):
         logging.info("Erasing the board")
-        command = [
-            "openocd",
-            "-c",
-            "adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; init; nrf52_recover; exit",
-        ]
-        subprocess.run(command, check=True)
+        subprocess.run(
+            [
+                "truncate",
+                "-s0",
+                "/srv/tftp/boot.bin",
+            ],
+            check=True,
+        )
+        self.reset()
 
     def reset(self):
-        logging.info("Performing a target reset via JTAG")
-        command = [
-            "openocd",
-            "-c",
-            "adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; init; reset; exit",
-        ]
-        subprocess.run(command, check=True)
+        if self.serial.is_open():
+            self.serial.close()
+            time.sleep(0.1)
+            self.serial.open()
+        else:
+            self.serial.open()
+            self.serial.close()
+
+    def wait_boot(self):
+        logging.info("Waiting 10sec for target to boot")
+        time.sleep(15)
 
     # The flash_app method is inherited from TockloaderBoard
 
@@ -112,10 +134,10 @@ class Nrf52dk(TockloaderBoard):
 
 def load_target_spec():
     # Assume the target spec file is in a fixed location
-    target_spec_path = os.path.join(os.getcwd(), "target_spec.yaml")
+    target_spec_path = os.path.join(os.getcwd(), "target_spec_imix.yaml")
     with open(target_spec_path, "r") as f:
         target_spec = yaml.safe_load(f)
     return target_spec
 
 
-board = Nrf52dk()
+board = LiteXArty()

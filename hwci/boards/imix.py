@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 # Copyright Tock Contributors 2024.
 
+import time
 import os
 import subprocess
 import logging
@@ -12,30 +13,31 @@ from utils.serial_port import SerialPort
 from gpio.gpio import GPIO
 import yaml
 import os
+import traceback
 
-
-class Nrf52dk(TockloaderBoard):
+class Imix(TockloaderBoard):
     def __init__(self):
         super().__init__()
         self.arch = "cortex-m4"
         self.kernel_path = os.path.join(
             self.base_dir, "repos/tock")
         self.kernel_board_path = os.path.join(
-            self.kernel_path, "boards/nordic/nrf52840dk")
+            self.kernel_path, "boards/imix")
         self.uart_port = self.get_uart_port()
         self.uart_baudrate = self.get_uart_baudrate()
-        self.program_method = "openocd"
-        self.openocd_board = "nrf52dk"
-        self.board = "nrf52dk"
+        self.board = "imix"
+        self.program_method = "serial_bootloader"
         self.serial = self.get_serial_port()
         self.gpio = self.get_gpio_interface()
+        self.open_serial_during_flash = False
+        self.app_sha256_credential = True
 
     def get_uart_port(self):
-        logging.info("Getting list of serial ports!")
+        logging.info("Getting list of serial ports")
         ports = list(serial.tools.list_ports.comports())
         for port in ports:
-            if "J-Link" in port.description:
-                logging.info(f"Found J-Link port: {port.device}")
+            if "imix IoT Module" in port.description:
+                logging.info(f"Found imix IoT programming port: {port.device}")
                 return port.device
         if ports:
             logging.info(f"Automatically selected port: {ports[0].device}")
@@ -51,14 +53,10 @@ class Nrf52dk(TockloaderBoard):
         logging.info(
             f"Using serial port: {self.uart_port} at baudrate {self.uart_baudrate}"
         )
-        return SerialPort(self.uart_port, self.uart_baudrate)
+        return SerialPort(self.uart_port, self.uart_baudrate, open_rts=False, open_dtr=True)
 
     def get_gpio_interface(self):
-        # Load the target spec from a YAML file
-        target_spec = load_target_spec()
-        # Initialize GPIO with the target spec
-        gpio = GPIO(target_spec)
-        return gpio
+        return None
 
     def cleanup(self):
         if self.gpio:
@@ -73,28 +71,27 @@ class Nrf52dk(TockloaderBoard):
             logging.error(f"Tock directory {self.kernel_path} not found")
             raise FileNotFoundError(f"Tock directory {self.kernel_path} not found")
 
-        # Run make flash-openocd from the board directory
+        # Run make program from the board directory (this uses the Tock bootloader)
         subprocess.run(
-            ["make", "flash-openocd"], cwd=self.kernel_board_path, check=True
+            ["make", "program"], cwd=self.kernel_board_path, check=True
         )
 
     def erase_board(self):
         logging.info("Erasing the board")
-        command = [
-            "openocd",
-            "-c",
-            "adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; init; nrf52_recover; exit",
-        ]
-        subprocess.run(command, check=True)
+        # We erase all apps, but don't erase the kernel. Is there a simple way
+        # that we can prevent the installed kernel from starting (by
+        # overwriting its reset vector?)
+        subprocess.run(["tockloader", "erase-apps"], check=True)
 
     def reset(self):
-        logging.info("Performing a target reset via JTAG")
-        command = [
-            "openocd",
-            "-c",
-            "adapter driver jlink; transport select swd; source [find target/nrf52.cfg]; init; reset; exit",
-        ]
-        subprocess.run(command, check=True)
+        if self.serial.is_open():
+            logging.info("Performing a target reset by toggling RTS")
+            self.serial.set_rts(True)
+            time.sleep(0.1)
+            self.serial.set_rts(False)
+        else:
+            logging.info("Performing a target reset by reading address 0")
+            subprocess.run(["tockloader", "read", "0x0", "1"], check=True)
 
     # The flash_app method is inherited from TockloaderBoard
 
@@ -112,10 +109,10 @@ class Nrf52dk(TockloaderBoard):
 
 def load_target_spec():
     # Assume the target spec file is in a fixed location
-    target_spec_path = os.path.join(os.getcwd(), "target_spec.yaml")
+    target_spec_path = os.path.join(os.getcwd(), "target_spec_imix.yaml")
     with open(target_spec_path, "r") as f:
         target_spec = yaml.safe_load(f)
     return target_spec
 
 
-board = Nrf52dk()
+board = Imix()
