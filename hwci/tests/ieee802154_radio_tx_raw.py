@@ -1,0 +1,154 @@
+# Licensed under the Apache License, Version 2.0 or the MIT License.
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+# Copyright Tock Contributors 2025.
+
+"""
+Test for IEEE 802.15.4 raw radio transmission functionality.
+Tests raw packet transmission between two boards.
+"""
+
+import time
+import logging
+from core.test_harness import TestHarness
+
+
+class RadioTxRawTest(TestHarness):
+    # Board requirements - TX board needs thread kernel for raw transmission
+    BOARD_REQUIREMENTS = {
+        0: {"kernel_config": "thread"},  # TX board needs thread kernel
+        1: {"kernel_config": "standard"},  # RX board can use standard kernel
+    }
+
+    def __init__(self):
+        super().__init__()
+
+    def test(self, boards):
+        # Require 2 boards for this test
+        assert len(boards) >= 2, "Radio TX Raw test requires at least 2 boards"
+
+        board_tx = boards[0]
+        board_rx = boards[1]
+
+        # Check if boards support raw transmission
+        # The TX board needs the thread tutorial kernel configuration
+        if not hasattr(
+            board_tx, "kernel_binary_name"
+        ) or "thread-tutorial" not in getattr(board_tx, "kernel_binary_name", ""):
+            logging.warning("TX board may not support raw IEEE 802.15.4 transmission.")
+            logging.warning(
+                "This test requires the nrf52dk_thread board configuration."
+            )
+            logging.warning(
+                "Consider using board_module: hwci/boards/nrf52dk_thread.py in your board descriptor."
+            )
+
+        # Erase and flash both boards
+        board_tx.erase_board()
+        board_tx.flash_kernel()
+        board_tx.flash_app("tests/ieee802154/radio_tx_raw")
+
+        board_rx.erase_board()
+        board_rx.flash_kernel()
+        board_rx.flash_app("tests/ieee802154/radio_rx")
+
+        # Wait for applications to initialize
+        logging.info("Waiting for applications to initialize...")
+        time.sleep(2)
+
+        # Monitor TX board output briefly to ensure it's transmitting
+        logging.info("Checking TX board output...")
+        tx_start = time.time()
+        tx_transmitting = False
+        while time.time() - tx_start < 2:
+            try:
+                line = board_tx.serial.expect(r".+", timeout=0.5, timeout_error=False)
+                if line:
+                    line_str = (
+                        line.decode("utf-8", errors="replace")
+                        if isinstance(line, bytes)
+                        else str(line)
+                    )
+                    logging.info(f"TX output: {line_str.strip()}")
+                    if "Transmit" in line_str or "raw frame" in line_str:
+                        tx_transmitting = True
+            except Exception as e:
+                logging.debug(f"Exception during TX expect: {e}")
+                continue
+
+        if not tx_transmitting:
+            logging.warning("TX board may not be transmitting properly")
+
+        # Collect output from RX board for 10 seconds
+        start_time = time.time()
+        test_duration = 10
+        rx_output = []
+
+        logging.info(f"Collecting received packets for {test_duration} seconds...")
+
+        while time.time() - start_time < test_duration:
+            try:
+                line = board_rx.serial.expect(r".+", timeout=0.5, timeout_error=False)
+                if line:
+                    line_str = (
+                        line.decode("utf-8", errors="replace")
+                        if isinstance(line, bytes)
+                        else str(line)
+                    )
+                    rx_output.append(line_str)
+                    logging.debug(f"RX output: {line_str.strip()}")
+            except Exception as e:
+                logging.debug(f"Exception during expect: {e}")
+                continue
+
+        # Join all output into a single string to handle fragmented serial data
+        full_output = "".join(rx_output)
+
+        # Log first part of output to debug
+        if full_output:
+            logging.info(f"First 500 chars of RX output: {full_output[:500]}")
+        else:
+            logging.warning("No RX output received")
+
+        # Count complete packet patterns in the joined output
+        success_count = 0
+        EXPECTED_PACKETS = 20  # Raw TX sends fewer packets
+
+        # Use regex to find the pattern with flexible whitespace
+        import re
+
+        # First try to find any "Received packet" messages
+        received_packets = re.findall(
+            r"Received packet with payload of \d+ bytes from offset \d+", full_output
+        )
+        logging.info(f"Found {len(received_packets)} 'Received packet' messages")
+        if received_packets:
+            logging.info(f"First packet message: {received_packets[0]}")
+
+        # Now look for the specific pattern we expect
+        pattern_regex = re.compile(
+            r"Received packet with payload of 60 bytes from offset 18\s+"
+            r"00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f\s+"
+            r"10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f\s+"
+            r"20 21 22 23 24 25 26 27 28 29 2a 2b 2c 2d 2e 2f\s+"
+            r"30 31 32 33 34 35 36 37 38 39 3a 3b\s+"
+            r"Packet destination PAN ID: 0xabcd\s+"
+            r"Packet destination address: 0xffff\s+"
+            r"Packet source PAN ID: 0xabcd\s+"
+            r"Packet source address: 00 00 00 00 00 00 00 00"
+        )
+
+        success_count = len(pattern_regex.findall(full_output))
+
+        success_rate = success_count / EXPECTED_PACKETS if EXPECTED_PACKETS > 0 else 0
+
+        # Check if 90% of packets were received successfully
+        assert (
+            success_rate >= 0.90
+        ), f"Radio TX Raw test failed: only {success_count}/{EXPECTED_PACKETS} packets received ({success_rate:.1%})"
+
+        print(
+            f"Radio TX Raw test passed: {success_count}/{EXPECTED_PACKETS} packets received successfully"
+        )
+
+
+test = RadioTxRawTest()

@@ -6,6 +6,7 @@ import time
 import re
 from utils.test_helpers import OneshotTest
 
+
 class BlinkCHelloButtonsTest(OneshotTest):
     def __init__(self):
         super().__init__(apps=["blink", "c_hello", "buttons"])
@@ -14,7 +15,7 @@ class BlinkCHelloButtonsTest(OneshotTest):
         gpio = board.gpio
         serial = board.serial
 
-        # Map the LEDs & buttons according to target_spec.yaml
+        # Map the LEDs & buttons
         led_pins = {
             "LED1": gpio.pin("P0.13"),
             "LED2": gpio.pin("P0.14"),
@@ -41,10 +42,7 @@ class BlinkCHelloButtonsTest(OneshotTest):
         # Routine to record the amount of times that each LED was toggled,
         # while optionally toggling a button on each GPIO read:
         def count_led_toggles(toggle_button=None):
-            toggle_counts = {
-                led: 0
-                for led in led_pins.keys()
-            }
+            toggle_counts = {led: 0 for led in led_pins.keys()}
             previous_states = {}
             button_state = 0
             for _ in range(50):  # Read the LED states multiple times
@@ -77,31 +75,42 @@ class BlinkCHelloButtonsTest(OneshotTest):
 
         logging.info("Observing blink pattern without toggling buttons")
         base_toggle_counts = count_led_toggles()
-        logging.info(f"LED toggle counts without toggling buttons: {base_toggle_counts}")
+        logging.info(
+            f"LED toggle counts without toggling buttons: {base_toggle_counts}"
+        )
 
         for button_idx, button_label in enumerate(button_pins.keys()):
             logging.info(f"Observing blink pattern while toggling {button_label}")
             toggle_counts = count_led_toggles(toggle_button=button_label)
-            logging.info(f"LED toggle counts while toggling button {button_label}: {toggle_counts}")
+            logging.info(
+                f"LED toggle counts while toggling button {button_label}: {toggle_counts}"
+            )
 
             # Ensure that for all LEDs where their corresponding button has not
             # been toggled, the observed blink frequency is roughly that of
             # the base toggle count above. For the LED where its button has
             # been toggled, its count should be significantly higher:
-            for led_idx, (led_label, led_toggle_count) in enumerate(toggle_counts.items()):
+            for led_idx, (led_label, led_toggle_count) in enumerate(
+                toggle_counts.items()
+            ):
                 base_toggle_count = base_toggle_counts[led_label]
                 if led_idx != button_idx:
-                    assert led_toggle_count > base_toggle_count - 3 \
-                        and led_toggle_count < base_toggle_count + 3, \
-                        f"LED {led_label} toggle count {led_toggle_count} " \
-                        + f"deviates from its base toggle count " \
-                        + f"{base_toggle_count} by more than +-3 when " \
+                    assert (
+                        led_toggle_count > base_toggle_count - 3
+                        and led_toggle_count < base_toggle_count + 3
+                    ), (
+                        f"LED {led_label} toggle count {led_toggle_count} "
+                        + f"deviates from its base toggle count "
+                        + f"{base_toggle_count} by more than +-3 when "
                         + f"pressing unrelated button {button_label}"
+                    )
                 else:
-                    assert led_toggle_count > base_toggle_count + 3, \
-                        f"LED {led_label} toggle count {led_toggle_count} " \
-                        + f"is not significantly higher than its base toggle " \
-                        + f"count {base_toggle_count} (+3) when toggling " \
+                    assert led_toggle_count > base_toggle_count + 3, (
+                        f"LED {led_label} toggle count {led_toggle_count} "
+                        + f"is not significantly higher than its base toggle "
+                        + f"count {base_toggle_count} (+3) when toggling "
                         + f"button {button_label}"
+                    )
+
 
 test = BlinkCHelloButtonsTest()
