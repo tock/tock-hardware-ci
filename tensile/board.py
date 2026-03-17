@@ -66,19 +66,34 @@ class Board:
 
         self.log_info(f"[FLASHING -- COMPLETE] {self.board_serial_no}.") 
 
-        # Build libtock-c app.
-        self.log_info(f"[BUILDING] libtock-c app {self.app_name}...")
-        self.log_info(sh.make("-C", self.libtock_path, _err_to_out=True))
-        self.log_info(f"[BUILDING -- COMPLETE] {self.app_name}.")
+        # Build libtock app.
+        
+        # Building / Flashing is different depending on if libtock-c/rs.
+        if "libtock-rs" in self.libtock_path:
+            self.log_info(f"[BUILDING] libtock-rs app {self.app_name}...")
+            self.log_info(sh.make("-C", "libtock-rs", "nrf52840", f"EXAMPLE={self.app_name}", _err_to_out=True))
+            # Flash libtock app to board.
+            self.log_info(f"[FLASHING] libtock-rs app {self.app_name} to: {self.board_serial_no}...")
+            self.log_info(sh.tockloader(
+                            "install", 
+                            f"libtock-rs/target/nrf52840/thumbv7em-none-eabi/release/examples/{self.app_name}.tab",
+                            "--jlink-serial-number", 
+                            self.board_serial_no, 
+                            _err_to_out=True))
 
-        # Flash libtock-c app to board.
-        self.log_info(f"[FLASHING] libtock-c app {self.app_name} to: {self.board_serial_no}...")
-        self.log_info(sh.tockloader(
-                        "install", 
-                        f"{self.libtock_path}/build/{self.app_name}.tab",
-                        "--jlink-serial-number", 
-                        self.board_serial_no, 
-                        _err_to_out=True))
+        else:
+            self.log_info(f"[BUILDING] libtock-c app {self.app_name}...")
+            self.log_info(sh.make("-C", self.libtock_path, _err_to_out=True))
+
+            # Flash libtock app to board.
+            self.log_info(f"[FLASHING] libtock-c app {self.app_name} to: {self.board_serial_no}...")
+            self.log_info(sh.tockloader(
+                            "install", 
+                            f"{self.libtock_path}/build/{self.app_name}.tab",
+                            "--jlink-serial-number", 
+                            self.board_serial_no, 
+                            _err_to_out=True))
+        
         self.log_info(f"[FLASHING -- COMPLETE] {self.app_name}.")
 
 
